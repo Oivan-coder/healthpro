@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f5f5f7" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Атлас здоровья" />
+  <title>Атлас здоровья — кабинет пациента</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./assets/icons/atlas-icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./css/theme.css?v=patient-ui-86-patient-state" />
+  <link rel="stylesheet" href="./css/layout.css?v=patient-ui-86-patient-state" />
+  <link rel="stylesheet" href="./css/mobile.css?v=patient-ui-86-patient-state" />
+</head>
+<body class="is-login">
+  <div class="bg-orb bg-orb-a"></div>
+  <div class="bg-orb bg-orb-b"></div>
+
+  <section class="login-view login-screen" id="loginView">
+    <div class="login-card glass">
+      <div class="login-hero">
+        <div class="badge">Атлас здоровья</div>
+        <h1>Атлас здоровья</h1>
+        <p>Спокойная лента лабораторного здоровья</p>
+        <p class="login-description">Результаты, динамика, документы и следующий шаг к врачу в понятном пациентском виде.</p>
+        <div class="login-benefits">
+          <div><b>Лента</b></div>
+          <div><b>Анализы</b></div>
+          <div><b>Документы</b></div>
+        </div>
+        <div class="login-preview-image">
+          <div class="login-preview-top">
+            <span>Лента здоровья</span>
+            <b>Алексей, результаты обновлены</b>
+          </div>
+          <div class="login-preview-feed" aria-hidden="true">
+            <div><span>Глюкоза</span><b>6.2</b><small>обсудить</small></div>
+            <div><span>Липидный профиль</span><b>готов</b><small>12 показателей</small></div>
+            <div><span>Следующий шаг</span><b>терапевт</b><small>подготовить вопросы</small></div>
+          </div>
+          <div class="login-preview-bottom">
+            <div><b>Это не диагноз</b></div>
+            <div><b>Смотреть динамику</b></div>
+            <div><b>Обсудить с врачом</b></div>
+          </div>
+        </div>
+      </div>
+
+      <form class="login-form" id="loginForm">
+        <div class="auth-tabs">
+          <button type="button" class="active" data-auth-tab="login">Вход</button>
+          <button type="button" data-auth-tab="register">Регистрация</button>
+        </div>
+
+        <div class="auth-panel active" id="loginPanel">
+          <h2>Вход пациента</h2>
+          <p class="muted">Войдите по телефону и демо-коду, как в сценарии SMS-подтверждения.</p>
+
+          <label>Телефон
+            <input id="phoneInput" value="+7 900 123-45-67" />
+          </label>
+
+          <label>Код из SMS
+            <input id="smsCodeInput" inputmode="numeric" autocomplete="one-time-code" maxlength="4" placeholder="1234" />
+          </label>
+
+          <p class="auth-hint">Демо-код: <b>1234</b></p>
+          <p class="auth-error" id="loginError" hidden>Введите демо-код 1234, чтобы войти в кабинет.</p>
+
+          <div class="demo-patient-picker" id="demoPatientPicker">
+            <div class="label">Выберите демо-пациента</div>
+            <button type="button" class="demo-patient-card active" data-demo-patient-id="alexey">
+              <b>Алексей Петров</b>
+              <span>Метаболический риск</span>
+              <small>MIS-248019 • глюкоза, HbA1c, липиды</small>
+            </button>
+            <button type="button" class="demo-patient-card" data-demo-patient-id="anna">
+              <b>Анна Смирнова</b>
+              <span>Анемия / железодефицит</span>
+              <small>MIS-391204 • ОАК, ферритин, железо</small>
+            </button>
+            <button type="button" class="demo-patient-card" data-demo-patient-id="dmitry">
+              <b>Дмитрий Орлов</b>
+              <span>Печеночные ферменты</span>
+              <small>MIS-582771 • АЛТ, АСТ, ГГТ</small>
+            </button>
+          </div>
+
+          <label class="consent-line">
+            <input type="checkbox" id="loginConsent" checked />
+            <span>Согласен с обработкой персональных данных</span>
+          </label>
+
+          <div class="demo-med-card">
+            <span>Карта пациента</span>
+            <b id="demoMisCard">MIS-248019</b>
+            <small id="demoPatientProfile">Метаболический риск • данные подключены в демо-режиме.</small>
+          </div>
+
+          <button class="btn primary wide" type="submit" onclick="window.App?.handleLoginSubmit(event)">Войти в демо</button>
+          <p class="security-note">В production вход будет подтверждаться одноразовым SMS-кодом. Пояснения в кабинете не являются диагнозом.</p>
+        </div>
+
+        <div class="auth-panel" id="registerPanel" hidden>
+          <h2>Регистрация</h2>
+          <p class="muted">Оставьте телефон и дату рождения для демонстрации регистрационного шага.</p>
+
+          <label>Телефон
+            <input id="registerPhoneInput" value="+7 900 123-45-67" />
+          </label>
+
+          <label>Дата рождения
+            <input id="registerBirthInput" value="14.08.1983" />
+          </label>
+
+          <label class="consent-line">
+            <input type="checkbox" id="registerConsent" />
+            <span>Я согласен с обработкой персональных данных и политикой конфиденциальности</span>
+          </label>
+
+          <p class="auth-hint" id="registerDemoMessage">В демо-версии регистрация имитируется. В production после подтверждения телефона пациент сможет привязать карту клиники.</p>
+
+          <div class="legal-links">
+            <button type="button" data-legal-modal="privacyModal">Политика конфиденциальности</button>
+            <button type="button" data-legal-modal="consentModal">Согласие на обработку ПДн</button>
+            <button type="button" data-legal-modal="termsModal">Условия использования</button>
+          </div>
+
+          <a class="btn primary wide" href="#register-demo" id="registerDemoBtn">Продолжить</a>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <div class="app app-shell hidden" id="appView">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+          <div class="brand-logo">АЗ</div>
+          <div>
+          <div class="brand-name">Атлас здоровья</div>
+          <div class="brand-caption">лабораторная динамика</div>
+        </div>
+      </div>
+
+      <nav class="side-nav" id="sideNav">
+        <a href="#dashboard" data-route="dashboard" data-route-action="dashboard" class="nav-link active"><span>⌁</span>Сегодня</a>
+        <a href="#labs" data-route="labs" data-route-action="labs" class="nav-link"><span>◌</span>Анализы</a>
+        <a href="#lab-history" data-route="lab-history" data-route-action="lab-history" class="nav-link"><span>▦</span>История</a>
+        <a href="#appointments" data-route="appointments" data-route-action="appointments" class="nav-link"><span>＋</span>Записаться</a>
+        <a href="#visits" data-route="visits" data-route-action="visits" class="nav-link"><span>⌘</span>Врачи</a>
+        <a href="#reports" data-route="reports" data-route-action="reports" class="nav-link"><span>□</span>Документы</a>
+        <a href="#assistant" data-route="assistant" data-route-action="assistant" class="nav-link"><span>?</span>Помощник</a>
+        <a href="#profile" data-route="profile" data-route-action="profile" class="nav-link"><span>☉</span>Профиль</a>
+        <a href="#integration" data-route="integration" data-route-action="integration" class="nav-link nav-link-tech"><span>⇄</span>Интеграция</a>
+      </nav>
+
+      <div class="side-card">
+        <div class="label">Подсказка</div>
+        <div class="sync-row"><i></i><b id="syncStatusText">Результаты обновлены</b></div>
+        <small id="syncTime">Откройте лабораторию, чтобы посмотреть динамику.</small>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar app-header">
+        <button class="icon-btn mobile-only" id="menuBtn">☰</button>
+        <div>
+          <div class="label" id="routeCaption">Главная</div>
+          <h1 id="routeTitle">Личный кабинет пациента</h1>
+        </div>
+        <div class="top-actions">
+          <button class="avatar" id="avatarMenuBtn" type="button">АП</button>
+          <div class="profile-menu" id="profileMenu" hidden>
+            <button type="button" data-route-action="profile">Профиль</button>
+            <button type="button" id="logoutBtn">Выйти</button>
+          </div>
+        </div>
+      </header>
+
+      <div id="pageRoot" class="page-root"></div>
+    </main>
+  </div>
+
+  <nav class="bottom-nav mobile-nav" id="bottomNav" style="display:none">
+    <a href="#dashboard" data-route="dashboard" data-route-action="dashboard" class="bottom-link active"><span>⌁</span><small>Сегодня</small></a>
+    <a href="#labs" data-route="labs" data-route-action="labs" class="bottom-link"><span>◌</span><small>Анализы</small></a>
+    <a href="#appointments" data-route="appointments" data-route-action="appointments" class="bottom-link"><span>＋</span><small>Записаться</small></a>
+    <a href="#reports" data-route="reports" data-route-action="reports" class="bottom-link"><span>□</span><small>Документы</small></a>
+    <a href="#assistant" data-route="assistant" data-route-action="assistant" class="bottom-link"><span>?</span><small>Помощник</small></a>
+    <a href="#profile" data-route="profile" data-route-action="profile" class="bottom-link"><span>☉</span><small>Профиль</small></a>
+  </nav>
+
+  <div class="modal-backdrop" id="modalBackdrop"></div>
+
+  <section class="modal legal-modal" id="privacyModal">
+    <div class="modal-head">
+      <h3>Политика конфиденциальности</h3>
+      <button class="icon-btn" data-close-modal>×</button>
+    </div>
+    <p class="muted">Документ будет добавлен перед запуском. Медицинские данные отображаются после подтверждения доступа пациента.</p>
+  </section>
+
+  <section class="modal legal-modal" id="consentModal">
+    <div class="modal-head">
+      <h3>Согласие на обработку ПДн</h3>
+      <button class="icon-btn" data-close-modal>×</button>
+    </div>
+    <p class="muted">Документ будет добавлен перед запуском. В демо-версии данные используются только для проверки сценария кабинета.</p>
+  </section>
+
+  <section class="modal legal-modal" id="termsModal">
+    <div class="modal-head">
+      <h3>Условия использования</h3>
+      <button class="icon-btn" data-close-modal>×</button>
+    </div>
+    <p class="muted">Документ будет добавлен перед запуском. Пояснения в кабинете помогают ориентироваться в данных, но не заменяют консультацию врача.</p>
+  </section>
+
+  <section class="modal" id="bookingModal">
+    <div class="modal-head">
+      <h3>Запись создана</h3>
+      <button class="icon-btn" data-close-modal>×</button>
+    </div>
+    <div id="bookingResult"></div>
+    <button class="btn primary wide" id="goVisitsBtn">Перейти в приемы</button>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="./js/core/api-client.js?v=patient-ui-86-patient-state"></script>
+  <script src="./components/ui.js?v=patient-ui-86-patient-state"></script>
+  <script src="./components/charts.js?v=patient-ui-86-patient-state"></script>
+  <script src="./pages/dashboard.js?v=patient-ui-86-patient-state"></script>
+  <script src="./pages/labs.js?v=patient-ui-86-patient-state"></script>
+  <script src="./pages/appointments.js?v=patient-ui-86-patient-state"></script>
+  <script src="./pages/documents.js?v=patient-ui-86-patient-state"></script>
+  <script src="./pages/assistant.js?v=patient-ui-86-patient-state"></script>
+  <script src="./pages/admin.js?v=patient-ui-86-patient-state"></script>
+  <script src="./js/core/app.js?v=patient-ui-86-patient-state"></script>
+</body>
+</html>

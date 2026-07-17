@@ -1,0 +1,14 @@
+[
+  {
+    "id": "lrd_biochem_25042026",
+    "labReportId": "lr_biochem_25042026",
+    "patientId": "p_001",
+    "storageKey": "alexey/lr_biochem_25042026.pdf",
+    "sourceFilename": "biohimia_25042026_original_lab_blank.pdf",
+    "contentType": "application/pdf",
+    "fileSize": 1023,
+    "checksumSha256": "eb1dc7005b735cba80c6bc8bfa866c45f0492638d14fcf5e44d78007b3a2bda0",
+    "signatureStatus": "original_lab_pdf",
+    "createdAt": "2026-04-25T09:10:00.000Z"
+  }
+]

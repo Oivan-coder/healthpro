@@ -1,0 +1,11 @@
+{
+  "version": "5.0",
+  "lastSync": "25.04.2026, 09:42",
+  "source": "backend-json-demo",
+  "pilotScope": {
+    "patients": "50–200",
+    "parameters": "30–50",
+    "contour": "1 МИС/ЛИС",
+    "ai": "без сложного ИИ на первом этапе"
+  }
+}

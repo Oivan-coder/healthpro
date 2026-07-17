@@ -1,0 +1,52 @@
+[
+  {
+    "id": "doc_1",
+    "specialtyId": "therapy",
+    "name": "Иванова Мария Сергеевна",
+    "role": "Терапевт",
+    "rating": "4.9",
+    "experience": "12 лет",
+    "room": "214",
+    "initials": "МИ"
+  },
+  {
+    "id": "doc_2",
+    "specialtyId": "therapy",
+    "name": "Орлова Наталья Николаевна",
+    "role": "Терапевт",
+    "rating": "4.8",
+    "experience": "9 лет",
+    "room": "219",
+    "initials": "НО"
+  },
+  {
+    "id": "doc_3",
+    "specialtyId": "cardio",
+    "name": "Кузнецов Андрей Олегович",
+    "role": "Кардиолог",
+    "rating": "4.9",
+    "experience": "15 лет",
+    "room": "305",
+    "initials": "АК"
+  },
+  {
+    "id": "doc_4",
+    "specialtyId": "endo",
+    "name": "Соколова Елена Викторовна",
+    "role": "Эндокринолог",
+    "rating": "4.7",
+    "experience": "11 лет",
+    "room": "118",
+    "initials": "ЕС"
+  },
+  {
+    "id": "doc_5",
+    "specialtyId": "lab",
+    "name": "Процедурный кабинет",
+    "role": "Забор крови",
+    "rating": "—",
+    "experience": "08:00–12:00",
+    "room": "101",
+    "initials": "ПК"
+  }
+]

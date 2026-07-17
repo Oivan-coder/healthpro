@@ -1,0 +1,18 @@
+{
+  "name": "Атлас здоровья",
+  "short_name": "Атлас",
+  "description": "Личный кабинет пациента с лабораторной динамикой",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f5f5f7",
+  "theme_color": "#f5f5f7",
+  "icons": [
+    {
+      "src": "./assets/icons/atlas-icon.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

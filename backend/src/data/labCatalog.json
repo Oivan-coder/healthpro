@@ -1,0 +1,182 @@
+[
+  {
+    "code": "GLU",
+    "name": "Глюкоза",
+    "group": "Биохимия",
+    "unit": "ммоль/л",
+    "low": 3.9,
+    "high": 5.5,
+    "loinc": "2345-7",
+    "graphable": true
+  },
+  {
+    "code": "HBA1C",
+    "name": "HbA1c",
+    "group": "Биохимия",
+    "unit": "%",
+    "low": 4,
+    "high": 5.6,
+    "loinc": "4548-4",
+    "graphable": true
+  },
+  {
+    "code": "CREA",
+    "name": "Креатинин",
+    "group": "Биохимия",
+    "unit": "мкмоль/л",
+    "low": 62,
+    "high": 106,
+    "loinc": "2160-0",
+    "graphable": true
+  },
+  {
+    "code": "ALT",
+    "name": "АЛТ",
+    "group": "Биохимия",
+    "unit": "Ед/л",
+    "low": 0,
+    "high": 41,
+    "loinc": "1742-6",
+    "graphable": true
+  },
+  {
+    "code": "AST",
+    "name": "АСТ",
+    "group": "Биохимия",
+    "unit": "Ед/л",
+    "low": 0,
+    "high": 40,
+    "loinc": "1920-8",
+    "graphable": true
+  },
+  {
+    "code": "CHOL",
+    "name": "Общий холестерин",
+    "group": "Липидный профиль",
+    "unit": "ммоль/л",
+    "low": 0,
+    "high": 5.2,
+    "loinc": "2093-3",
+    "graphable": true
+  },
+  {
+    "code": "LDL",
+    "name": "ЛПНП",
+    "group": "Липидный профиль",
+    "unit": "ммоль/л",
+    "low": 0,
+    "high": 3,
+    "loinc": "13457-7",
+    "graphable": true
+  },
+  {
+    "code": "HDL",
+    "name": "ЛПВП",
+    "group": "Липидный профиль",
+    "unit": "ммоль/л",
+    "low": 1,
+    "high": 99,
+    "loinc": "2085-9",
+    "graphable": true
+  },
+  {
+    "code": "TG",
+    "name": "Триглицериды",
+    "group": "Липидный профиль",
+    "unit": "ммоль/л",
+    "low": 0,
+    "high": 1.7,
+    "loinc": "2571-8",
+    "graphable": true
+  },
+  {
+    "code": "HGB",
+    "name": "Гемоглобин",
+    "group": "ОАК",
+    "unit": "г/л",
+    "low": 130,
+    "high": 170,
+    "loinc": "718-7",
+    "graphable": true
+  },
+  {
+    "code": "WBC",
+    "name": "Лейкоциты",
+    "group": "ОАК",
+    "unit": "10⁹/л",
+    "low": 4,
+    "high": 9,
+    "loinc": "6690-2",
+    "graphable": true
+  },
+  {
+    "code": "PLT",
+    "name": "Тромбоциты",
+    "group": "ОАК",
+    "unit": "10⁹/л",
+    "low": 150,
+    "high": 400,
+    "loinc": "777-3",
+    "graphable": true
+  },
+  {
+    "code": "ESR",
+    "name": "СОЭ",
+    "group": "Воспаление",
+    "unit": "мм/ч",
+    "low": 0,
+    "high": 15,
+    "loinc": "4537-7",
+    "graphable": true
+  },
+  {
+    "code": "CRP",
+    "name": "СРБ",
+    "group": "Воспаление",
+    "unit": "мг/л",
+    "low": 0,
+    "high": 5,
+    "loinc": "1988-5",
+    "graphable": true
+  },
+  {
+    "code": "INR",
+    "name": "МНО",
+    "group": "Коагулограмма",
+    "unit": "",
+    "low": 0.85,
+    "high": 1.15,
+    "loinc": "6301-6",
+    "graphable": true
+  },
+  {
+    "code": "FIB",
+    "name": "Фибриноген",
+    "group": "Коагулограмма",
+    "unit": "г/л",
+    "low": 2,
+    "high": 4,
+    "loinc": "3255-7",
+    "graphable": true
+  },
+  {
+    "code": "TSH",
+    "name": "ТТГ",
+    "group": "Гормоны",
+    "unit": "мМЕ/л",
+    "low": 0.4,
+    "high": 4,
+    "loinc": "3016-3",
+    "graphable": true
+  },
+  {
+    "code": "VITD",
+    "name": "Витамин D",
+    "group": "Гормоны",
+    "unit": "нг/мл",
+    "low": 30,
+    "high": 100,
+    "loinc": "1989-3",
+    "graphable": true
+  }
+]

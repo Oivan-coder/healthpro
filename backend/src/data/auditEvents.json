@@ -1,0 +1,123 @@
+[
+  {
+    "id": "aud_1777734606476_4tazjvwc",
+    "eventType": "lab_report_pdf_download",
+    "patientId": "p_001",
+    "actorType": "demo_patient",
+    "actorId": "alexey",
+    "resourceType": "lab_report",
+    "resourceId": "lr_biochem_25042026",
+    "status": "success",
+    "ip": "::ffff:127.0.0.1",
+    "userAgent": "curl/7.87.0",
+    "details": {
+      "documentId": "lrd_biochem_25042026",
+      "signatureStatus": "original_lab_pdf",
+      "sourceFilename": "biohimia_25042026_original_lab_blank.pdf"
+    },
+    "createdAt": "2026-05-02T15:10:06.476Z"
+  },
+  {
+    "id": "aud_1777734577163_vjhkrcdu",
+    "eventType": "lab_report_import",
+    "patientId": null,
+    "actorType": "demo_integration",
+    "actorId": "local_demo",
+    "resourceType": "lab_report",
+    "resourceId": "audit_test_report_0502_b",
+    "status": "success",
+    "ip": "::ffff:127.0.0.1",
+    "userAgent": "curl/7.87.0",
+    "details": {
+      "sourceServiceCode": "BIOCHEM",
+      "testCount": 1
+    },
+    "createdAt": "2026-05-02T15:09:37.163Z"
+  },
+  {
+    "id": "aud_1777734577159_vlgxvqbv",
+    "eventType": "appointment_book",
+    "patientId": "p_001",
+    "actorType": "demo_patient",
+    "actorId": "alexey",
+    "resourceType": "appointment",
+    "resourceId": "v_1777734577145",
+    "status": "success",
+    "ip": "::ffff:127.0.0.1",
+    "userAgent": "curl/7.87.0",
+    "details": {
+      "doctor": "Иванова Мария Сергеевна",
+      "specialty": "Терапевт",
+      "date": "03.05.2026",
+      "time": "11:45"
+    },
+    "createdAt": "2026-05-02T15:09:37.159Z"
+  },
+  {
+    "id": "aud_1777734577153_x3cg18if",
+    "eventType": "document_download",
+    "patientId": "p_001",
+    "actorType": "demo_patient",
+    "actorId": "alexey",
+    "resourceType": "document",
+    "resourceId": "d_1",
+    "status": "success",
+    "ip": "::ffff:127.0.0.1",
+    "userAgent": "curl/7.87.0",
+    "details": {
+      "title": "Биохимия крови",
+      "type": "PDF"
+    },
+    "createdAt": "2026-05-02T15:09:37.153Z"
+  },
+  {
+    "id": "aud_1777734577135_06jiuces",
+    "eventType": "lab_report_pdf_download",
+    "patientId": "p_001",
+    "actorType": "demo_patient",
+    "actorId": "alexey",
+    "resourceType": "lab_report",
+    "resourceId": "lr_lipid_25042026",
+    "status": "not_connected",
+    "ip": "::ffff:127.0.0.1",
+    "userAgent": "curl/7.87.0",
+    "details": {
+      "reason": "lab_report_pdf_not_connected"
+    },
+    "createdAt": "2026-05-02T15:09:37.135Z"
+  },
+  {
+    "id": "aud_1777734577128_wjiko1rj",
+    "eventType": "lab_report_pdf_download",
+    "patientId": "anna",
+    "actorType": "demo_patient",
+    "actorId": "anna",
+    "resourceType": "lab_report",
+    "resourceId": "lr_biochem_25042026",
+    "status": "denied_not_found",
+    "ip": "::ffff:127.0.0.1",
+    "userAgent": "curl/7.87.0",
+    "details": {
+      "reason": "lab_report_not_found"
+    },
+    "createdAt": "2026-05-02T15:09:37.128Z"
+  },
+  {
+    "id": "aud_1777734567678_i06bnotj",
+    "eventType": "lab_report_pdf_download",
+    "patientId": "p_001",
+    "actorType": "demo_patient",
+    "actorId": "alexey",
+    "resourceType": "lab_report",
+    "resourceId": "lr_biochem_25042026",
+    "status": "success",
+    "ip": "::ffff:127.0.0.1",
+    "userAgent": "curl/7.87.0",
+    "details": {
+      "documentId": "lrd_biochem_25042026",
+      "signatureStatus": "original_lab_pdf",
+      "sourceFilename": "biohimia_25042026_original_lab_blank.pdf"
+    },
+    "createdAt": "2026-05-02T15:09:27.678Z"
+  }
+]

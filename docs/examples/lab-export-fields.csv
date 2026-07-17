@@ -1,0 +1,14 @@
+field,required,description,example
+external_patient_id,yes,Anonymized or test patient identifier,demo-patient-001
+source_report_id,yes,Unique report identifier in LIS/MIS,LIS-REPORT-2026-04-25-001
+source_service_code,yes,Local service or panel code,BIOCHEM
+service_name,no,Service or panel display name,Биохимия крови
+date,yes,Report date in DD.MM.YYYY,25.04.2026
+status,no,Report status,final
+source_test_code,yes,Local test code,GLU
+test_name,no,Test display name,Глюкоза
+value,yes,Result value,6.2
+unit,no,Measurement unit,ммоль/л
+reference_low,no,Lower reference boundary,3.9
+reference_high,no,Upper reference boundary,5.5
+method,no,Analyzer method or lab method,hexokinase

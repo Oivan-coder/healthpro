@@ -1,0 +1,30 @@
+{
+  "patient": {
+    "external_patient_id": "demo-patient-001"
+  },
+  "report": {
+    "source_report_id": "LIS-REPORT-2026-04-25-001",
+    "source_service_code": "BIOCHEM",
+    "service_name": "Биохимия крови",
+    "date": "25.04.2026",
+    "status": "final",
+    "observations": [
+      {
+        "source_test_code": "GLU",
+        "test_name": "Глюкоза",
+        "value": 6.2,
+        "unit": "ммоль/л",
+        "reference_low": 3.9,
+        "reference_high": 5.5
+      },
+      {
+        "source_test_code": "CREA",
+        "test_name": "Креатинин",
+        "value": 88,
+        "unit": "мкмоль/л",
+        "reference_low": 62,
+        "reference_high": 106
+      }
+    ]
+  }
+}
