@@ -12,6 +12,36 @@
   <link rel="stylesheet" href="./css/theme.css?v=closed-demo-auth-1" />
   <link rel="stylesheet" href="./css/layout.css?v=closed-demo-auth-1" />
   <link rel="stylesheet" href="./css/mobile.css?v=closed-demo-auth-1" />
+  <style>
+    .password-field {
+      position: relative;
+      display: block;
+    }
+
+    .password-field input {
+      width: 100%;
+      padding-right: 112px;
+    }
+
+    .password-toggle {
+      position: absolute;
+      top: 50%;
+      right: 18px;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      color: #667085;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 8px 4px;
+    }
+
+    .password-toggle:hover,
+    .password-toggle:focus-visible {
+      color: #1f5f96;
+    }
+  </style>
 </head>
 <body class="is-login">
   <div class="bg-orb bg-orb-a"></div>
@@ -58,7 +88,10 @@
           </label>
 
           <label>Пароль
-            <input id="passwordInput" type="password" autocomplete="current-password" required />
+            <span class="password-field">
+              <input id="passwordInput" type="password" autocomplete="current-password" required />
+              <button class="password-toggle" id="passwordToggle" type="button" aria-label="Показать пароль" aria-pressed="false">Показать</button>
+            </span>
           </label>
 
           <p class="auth-error" id="loginError" hidden>Не удалось выполнить вход.</p>
@@ -195,5 +228,22 @@
   <script src="./pages/admin.js?v=closed-demo-auth-1"></script>
   <script src="./pages/user-admin.js?v=closed-demo-auth-1"></script>
   <script src="./js/core/app.js?v=closed-demo-auth-1"></script>
+  <script>
+    (() => {
+      const input = document.getElementById("passwordInput");
+      const button = document.getElementById("passwordToggle");
+      if (!input || !button) return;
+
+      button.addEventListener("click", () => {
+        const isVisible = input.type === "text";
+        input.type = isVisible ? "password" : "text";
+        button.textContent = isVisible ? "Показать" : "Скрыть";
+        button.setAttribute("aria-label", isVisible ? "Показать пароль" : "Скрыть пароль");
+        button.setAttribute("aria-pressed", String(!isVisible));
+        input.focus({ preventScroll: true });
+        input.setSelectionRange(input.value.length, input.value.length);
+      });
+    })();
+  </script>
 </body>
 </html>
