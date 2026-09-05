@@ -65,9 +65,14 @@ function requirePasswordReady(req, res, next) {
 }
 
 function requireRole(role) {
+  return requireAnyRole(role);
+}
+
+function requireAnyRole(...roles) {
+  const allowed = new Set(roles.flat().filter(Boolean));
   return (req, res, next) => {
     if (!req.auth) return res.status(401).json({ error: "authentication_required" });
-    if (req.auth.user.role !== role) return res.status(403).json({ error: "forbidden" });
+    if (!allowed.has(req.auth.user.role)) return res.status(403).json({ error: "forbidden" });
     next();
   };
 }
@@ -78,6 +83,7 @@ module.exports = {
   requireAuth,
   requirePasswordReady,
   requireRole,
+  requireAnyRole,
   setSessionCookie,
   clearSessionCookie
 };
