@@ -14,6 +14,13 @@ function getDashboardTrendCodes(labs) {
   return saved.filter(code => available.has(code)).slice(0, 3);
 }
 
+function getDashboardFavoriteLabs(labs) {
+  return getDashboardTrendCodes(labs)
+    .map(code => labs.find(lab => lab.code === code))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
 function patientLabStatusText(count) {
   return count
     ? "Есть что обсудить"
@@ -74,17 +81,14 @@ function reportAttentionItems(report, labs) {
 }
 
 function getDashboardTrendLabs(labs) {
-  const savedCodes = getDashboardTrendCodes(labs);
-  const saved = savedCodes.map(code => labs.find(lab => lab.code === code)).filter(Boolean);
-  return saved
+  return getDashboardFavoriteLabs(labs)
     .filter(lab => Array.isArray(lab.history) && lab.history.length > 1)
     .filter(hasReferenceRange)
     .slice(0, 3);
 }
 
 function noReferenceTrendLabs(labs) {
-  const savedCodes = getDashboardTrendCodes(labs);
-  return savedCodes.map(code => labs.find(lab => lab.code === code)).filter(Boolean)
+  return getDashboardFavoriteLabs(labs)
     .filter(lab => Array.isArray(lab.history) && lab.history.length > 1 && !hasReferenceRange(lab))
     .slice(0, 3);
 }
@@ -104,8 +108,10 @@ window.Pages.dashboard = async function renderDashboard() {
   const nextVisit = data.nextVisit || data.visits[0];
   const latestReports = reports.slice(0, 3);
   const patientEvents = latestEventItems(data.events);
+  const favoriteLabs = getDashboardFavoriteLabs(data.labs);
   const trendLabs = getDashboardTrendLabs(data.labs);
   const skippedTrendLabs = noReferenceTrendLabs(data.labs);
+  const insufficientHistoryLabs = favoriteLabs.filter(lab => !Array.isArray(lab.history) || lab.history.length < 2);
   const focusLabs = data.labs.filter(lab => lab.flag !== "normal").slice(0, 4);
   const documentsCount = (data.documents || []).length + (data.reports || []).length;
   const newResultsDate = latestReportDate(latestReports);
@@ -138,18 +144,31 @@ window.Pages.dashboard = async function renderDashboard() {
         <div class="section-head">
           <div>
             <div class="label">Избранная динамика</div>
-            <h2>${trendLabs.length ? "Ваши показатели" : "Пока нет избранных показателей"}</h2>
-            <p class="muted">Линии показаны относительно обычного диапазона: зеленая зона — обычный диапазон, выше или ниже нее стоит обсудить с врачом.</p>
+            <h2>${favoriteLabs.length ? "Ваши показатели" : "Пока нет избранных показателей"}</h2>
+            <p class="muted">Избранные показатели отображаются сразу. График динамики строится после появления как минимум двух результатов.</p>
           </div>
           <button class="btn ghost" data-route-action="labs" data-lab-mode="tests">Выбрать показатели</button>
         </div>
-        ${trendLabs.length ? `
-          <div class="dashboard-trend-layout">
-            <div class="dashboard-chart-shell">
-              <canvas id="dashboardTrendChart" class="dashboard-chart dashboard-chart-large"></canvas>
+        ${favoriteLabs.length ? `
+          ${trendLabs.length ? `
+            <div class="dashboard-trend-layout">
+              <div class="dashboard-chart-shell">
+                <canvas id="dashboardTrendChart" class="dashboard-chart dashboard-chart-large"></canvas>
+              </div>
+              <div class="normalized-trend-legend">
+                ${favoriteLabs.map((lab, index) => `
+                  <div>
+                    <i style="background:${Charts.palette(index)}"></i>
+                    <b>${lab.name}</b>
+                    <span>последнее: ${lab.latestValue} ${lab.unit || ""}</span>
+                    <small class="status ${dashboardStatusClass(lab.flag)}">${dashboardStatusShort(lab.flag)}</small>
+                  </div>
+                `).join("")}
+              </div>
             </div>
+          ` : `
             <div class="normalized-trend-legend">
-              ${trendLabs.map((lab, index) => `
+              ${favoriteLabs.map((lab, index) => `
                 <div>
                   <i style="background:${Charts.palette(index)}"></i>
                   <b>${lab.name}</b>
@@ -158,12 +177,17 @@ window.Pages.dashboard = async function renderDashboard() {
                 </div>
               `).join("")}
             </div>
-          </div>
+            <div class="empty-trend empty-trend-large" style="margin-top:14px">
+              <b>Пока недостаточно данных для графика</b>
+              <p>Показатели уже сохранены в избранном. После следующего результата здесь автоматически появится динамика.</p>
+            </div>
+          `}
+          ${insufficientHistoryLabs.length ? `<p class="trend-note">Для ${insufficientHistoryLabs.length} ${pluralRu(insufficientHistoryLabs.length, "показателя", "показателей", "показателей")} пока есть только одно значение.</p>` : ""}
           ${skippedTrendLabs.length ? `<p class="trend-note">Для части показателей нет референсного диапазона, поэтому они не показаны на общем графике.</p>` : ""}
         ` : `
           <div class="empty-trend empty-trend-large">
             <b>Добавьте показатели в избранное</b>
-            <p>Добавьте показатели в избранное в разделе Анализы, чтобы видеть динамику здесь.</p>
+            <p>Добавьте показатели в избранное в разделе Анализы, чтобы видеть их здесь.</p>
             <button class="btn primary" data-route-action="labs" data-lab-mode="tests">К анализам</button>
           </div>
         `}
