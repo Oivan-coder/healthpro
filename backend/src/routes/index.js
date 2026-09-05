@@ -1,6 +1,7 @@
 const express = require("../utils/expressAdapter");
 const authRoutes = require("./authRoutes");
 const adminUserRoutes = require("./adminUserRoutes");
+const manualLabRoutes = require("./manualLabRoutes");
 const patientRoutes = require("./patientRoutes");
 const labRoutes = require("./labRoutes");
 const appointmentRoutes = require("./appointmentRoutes");
@@ -25,6 +26,7 @@ router.use(authRoutes);
 router.use(requireAuth);
 router.use(requirePasswordReady);
 router.use(adminUserRoutes);
+router.use(manualLabRoutes);
 router.use(patientRoutes);
 router.use(labRoutes);
 router.use(appointmentRoutes);
