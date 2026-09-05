@@ -1,0 +1,169 @@
+/* Adaptive layout refinements based on the real content width, not only viewport width. */
+.page-root {
+  container-type: inline-size;
+}
+
+/* Keep dense labels and controls from forcing cards wider than their grid tracks. */
+.page-root :is(.card, .feed-card, .lab-hero, .lab-layout, .appointment-layout, .toolbar, .section-head) {
+  min-width: 0;
+}
+
+.page-root :is(.card, .feed-card, .lab-hero, .lab-detail, .lab-list-card) :is(h1, h2, h3, p, span, b, small) {
+  max-width: 100%;
+}
+
+.lab-hero-stats .label,
+.report-summary-strip .label,
+.mini-health-grid .label {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  overflow-wrap: anywhere;
+}
+
+.lab-card-head,
+.detail-head,
+.section-head {
+  min-width: 0;
+}
+
+.lab-card-head > *,
+.detail-head > *,
+.section-head > * {
+  min-width: 0;
+}
+
+/* A 1200px content area is not enough for three appointment columns once the sidebar is present. */
+@container (max-width: 1200px) {
+  .appointment-layout {
+    grid-template-columns: minmax(280px, .82fr) minmax(330px, 1.18fr);
+    gap: 16px;
+  }
+
+  .appointment-layout > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .appointment-layout .date-strip,
+  .appointment-layout .appointment-date-strip {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(190px, 230px) minmax(100px, 130px);
+  }
+
+  .toolbar .segmented-control {
+    grid-column: 1 / -1;
+  }
+
+  .lab-layout {
+    grid-template-columns: minmax(350px, .72fr) minmax(0, 1.28fr);
+    gap: 16px;
+  }
+
+  .lab-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  }
+
+  .lab-hero-stats div {
+    min-width: 0;
+    padding-inline: 10px;
+  }
+
+  .lab-hero-stats .label {
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .lab-detail .report-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* At this width two dense analysis columns stop being useful; switch to a clean stacked flow. */
+@container (max-width: 1040px) {
+  .lab-layout,
+  .lab-hero,
+  .grid-2,
+  .grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-list,
+  .attention-list {
+    max-height: none;
+    overflow: visible;
+    padding-right: 0;
+  }
+
+  .lab-list-wrap.has-overflow::after {
+    display: none;
+  }
+
+  .lab-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .appointment-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .appointment-layout > :nth-child(3) {
+    grid-column: auto;
+  }
+
+  .toolbar {
+    grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+  }
+
+  .toolbar .segmented-control {
+    grid-column: 1 / -1;
+  }
+
+  .toolbar .btn {
+    width: 100%;
+  }
+}
+
+@container (max-width: 760px) {
+  .lab-list,
+  .lab-hero-stats,
+  .lab-detail .report-summary-strip,
+  .report-summary-strip,
+  .mini-health-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .toolbar > *,
+  .toolbar .segmented-control {
+    grid-column: 1;
+    width: 100%;
+  }
+
+  .section-head {
+    display: grid;
+    gap: 10px;
+  }
+
+  .section-head > .btn,
+  .section-head > .status {
+    justify-self: start;
+  }
+
+  .lab-card-head,
+  .detail-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lab-card-head .status,
+  .detail-head .status {
+    align-self: flex-start;
+  }
+}
