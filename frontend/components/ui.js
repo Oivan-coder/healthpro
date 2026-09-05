@@ -165,7 +165,8 @@ window.UI = (() => {
       assistant: ["Помощник", "Ответы по базе знаний"],
       import: ["Импорт", "Загрузка лабораторных данных"],
       integration: ["Интеграция", "Контур МИС/ЛИС"],
-      profile: ["Профиль", "Данные пациента"]
+      profile: ["Профиль", "Данные пациента"],
+      "admin-users": ["Администрирование", "Пользователи демо-контура"]
     };
     const [caption, title] = titles[route] || titles.dashboard;
     document.getElementById("routeCaption").textContent = caption;
