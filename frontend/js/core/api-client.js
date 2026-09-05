@@ -109,7 +109,7 @@ window.HealthAPI = (() => {
     if (configured) return configured.replace(/\/+$/, "");
     const hostname = window.location.hostname;
     if (["localhost", "127.0.0.1"].includes(hostname)) return "http://localhost:3001/api";
-    return `${window.location.protocol}//api.${hostname}/api`;
+    return `${window.location.origin}/api`;
   }
 
   const API_BASE = resolveApiBase();
