@@ -268,3 +268,88 @@ small { font-size: var(--type-small); }
   border-radius: 18px;
   background: rgba(36,124,120,.08);
 }
+
+/* Closed-demo finishing pass: protect dense desktop cards from clipping and overflow. */
+#pageRoot,
+#pageRoot > *,
+.appointment-layout > *,
+.lab-hero > *,
+.lab-hero-stats > *,
+.history-hero-card > *,
+.toolbar > * {
+  min-width: 0;
+}
+
+@media (min-width: 1181px) {
+  .appointment-layout {
+    grid-template-columns: minmax(250px,.82fr) minmax(320px,1fr) minmax(360px,1.12fr) !important;
+  }
+
+  .flow-step .appointment-date-strip {
+    display: grid !important;
+    grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+    gap: 8px !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
+  }
+
+  .flow-step .appointment-date-strip .date-btn {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    flex: none !important;
+    padding-inline: 5px !important;
+    font-size: 13px !important;
+    white-space: normal !important;
+    line-height: 1.15 !important;
+  }
+
+  .lab-hero {
+    grid-template-columns: minmax(0,1fr) minmax(360px,390px) !important;
+  }
+}
+
+.lab-hero-stats div {
+  min-width: 0 !important;
+  padding-inline: 10px !important;
+}
+
+.lab-hero-stats .label {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  overflow-wrap: anywhere !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+}
+
+.lab-hero-stats b {
+  font-variant-numeric: tabular-nums;
+}
+
+.appointment-layout .card,
+.lab-layout .card,
+.history-hero-card,
+.toolbar {
+  overflow: hidden;
+}
+
+@media (min-width: 821px) and (max-width: 1180px) {
+  .appointment-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .flow-step .appointment-date-strip {
+    display: grid !important;
+    grid-template-columns: repeat(5,minmax(0,1fr)) !important;
+    overflow: visible !important;
+  }
+
+  .flow-step .appointment-date-strip .date-btn {
+    min-width: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+}
