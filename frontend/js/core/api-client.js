@@ -9,9 +9,16 @@ window.PatientStorage = (() => {
     "atlas.appointmentContext",
     "atlas.selectedLabContext"
   ];
+  const PATIENT_KEY = "atlas.uiPatientId";
 
-  function getCurrentDemoPatientId() {
-    return String(localStorage.getItem("demoPatientId") || "").trim();
+  function setCurrentPatientId(patientId) {
+    const value = String(patientId || "").trim();
+    if (value) sessionStorage.setItem(PATIENT_KEY, value);
+    else sessionStorage.removeItem(PATIENT_KEY);
+  }
+
+  function getCurrentPatientId() {
+    return String(sessionStorage.getItem(PATIENT_KEY) || "").trim();
   }
 
   function cloneFallback(fallbackValue) {
@@ -21,7 +28,7 @@ window.PatientStorage = (() => {
   }
 
   function patientStorageKey(baseKey) {
-    const patientId = getCurrentDemoPatientId();
+    const patientId = getCurrentPatientId();
     return patientId ? `${baseKey}:${patientId}` : "";
   }
 
@@ -45,8 +52,7 @@ window.PatientStorage = (() => {
 
   function removePatientState(baseKey) {
     const key = patientStorageKey(baseKey);
-    if (!key) return;
-    localStorage.removeItem(key);
+    if (key) localStorage.removeItem(key);
   }
 
   function clearPatientSessionState() {
@@ -54,6 +60,7 @@ window.PatientStorage = (() => {
       localStorage.removeItem(key);
       sessionStorage.removeItem(key);
     });
+    setCurrentPatientId("");
     if (window.AssistantState) {
       AssistantState.mode = "patient_summary";
       AssistantState.context = null;
@@ -86,7 +93,8 @@ window.PatientStorage = (() => {
   }
 
   return {
-    getCurrentDemoPatientId,
+    setCurrentPatientId,
+    getCurrentPatientId,
     patientStorageKey,
     getPatientState,
     setPatientState,
@@ -99,12 +107,8 @@ window.HealthAPI = (() => {
   function resolveApiBase() {
     const configured = String(window.ATLAS_API_BASE || "").trim();
     if (configured) return configured.replace(/\/+$/, "");
-
     const hostname = window.location.hostname;
-    if (["localhost", "127.0.0.1"].includes(hostname)) {
-      return "http://localhost:3001/api";
-    }
-
+    if (["localhost", "127.0.0.1"].includes(hostname)) return "http://localhost:3001/api";
     return `${window.location.protocol}//api.${hostname}/api`;
   }
 
@@ -113,59 +117,67 @@ window.HealthAPI = (() => {
   let lastError = "";
   let lastErrorCode = "";
 
-  function demoPatientId() {
-    return PatientStorage.getCurrentDemoPatientId();
-  }
-
   async function request(path, options = {}) {
-    const { patientRequired = true, headers = {}, ...fetchOptions } = options;
-    const patientId = demoPatientId();
+    const { headers = {}, ...fetchOptions } = options;
     try {
-      if (patientRequired && !patientId) {
-        throw Object.assign(new Error("demo_context_required"), { code: "demo_context_required" });
-      }
       const requestHeaders = { "Content-Type": "application/json", ...headers };
-      if (patientId) requestHeaders["X-Demo-Patient-Id"] = patientId;
       const response = await fetch(`${API_BASE}${path}`, {
         credentials: "include",
         headers: requestHeaders,
         ...fetchOptions
       });
+      let body = null;
+      if (response.status !== 204) {
+        try { body = await response.json(); } catch (parseError) { body = null; }
+      }
       if (!response.ok) {
-        let body = {};
-        try { body = await response.json(); } catch (parseError) { body = {}; }
-        const code = body.error || `api_${response.status}`;
+        const code = body?.error || `api_${response.status}`;
         throw Object.assign(new Error(code), { code, status: response.status });
       }
       mode = "backend";
       lastError = "";
       lastErrorCode = "";
-      return response.json();
+      return body;
     } catch (error) {
-      mode = "unavailable";
+      if (!error.status || error.status >= 500) mode = "unavailable";
       lastErrorCode = error.code || error.message || "api_unavailable";
-      lastError = ["demo_context_required", "invalid_demo_patient"].includes(lastErrorCode)
-        ? "Демо-пациент не выбран. Вернитесь на экран входа."
-        : "Backend API недоступен. Запустите сервер: cd backend && npm run dev";
+      lastError = error.status ? lastErrorCode : "Backend API недоступен";
       throw error;
     }
   }
 
   function apiMode() {
-    if (mode === "unknown") {
-      return {
-        mode: "ready",
-        lastError,
-        lastErrorCode,
-        label: "Кабинет готов"
-      };
-    }
+    if (mode === "unknown") return { mode: "ready", lastError, lastErrorCode, label: "Кабинет готов" };
     return {
       mode: mode === "backend" ? "backend" : "unavailable",
       lastError,
       lastErrorCode,
       label: mode === "backend" ? "Данные обновлены" : "Кабинет временно недоступен"
     };
+  }
+
+  function post(path, payload) {
+    return request(path, { method: "POST", body: JSON.stringify(payload || {}) });
+  }
+
+  function patch(path, payload) {
+    return request(path, { method: "PATCH", body: JSON.stringify(payload || {}) });
+  }
+
+  function login(loginValue, password) { return post("/auth/login", { login: loginValue, password }); }
+  function me() { return request("/auth/me"); }
+  function logout() { return post("/auth/logout", {}); }
+  function changePassword(currentPassword, newPassword) {
+    return post("/auth/change-password", { currentPassword, newPassword });
+  }
+
+  function adminListUsers() { return request("/admin/users"); }
+  function adminCreateUser(payload) { return post("/admin/users", payload); }
+  function adminSetUserStatus(id, status) {
+    return patch(`/admin/users/${encodeURIComponent(id)}/status`, { status });
+  }
+  function adminResetPassword(id, temporaryPassword) {
+    return post(`/admin/users/${encodeURIComponent(id)}/reset-password`, { temporaryPassword });
   }
 
   function getSummary() { return request("/summary"); }
@@ -180,19 +192,12 @@ window.HealthAPI = (() => {
   function getVisits() { return request("/visits"); }
   function getReports() { return request("/reports"); }
   function getDocuments() { return request("/documents"); }
-  function getIntegrationStatus() { return request("/integration/status", { patientRequired: false }); }
-  function getAuditEvents() { return request("/audit/events", { patientRequired: false }); }
+  function getIntegrationStatus() { return request("/integration/status"); }
+  function getAuditEvents() { return request("/audit/events"); }
   function getBookingData() { return request("/appointments/dictionary"); }
-  function documentDownloadUrl(id) { return `${API_BASE}/documents/${encodeURIComponent(id)}/download?demoPatientId=${encodeURIComponent(demoPatientId())}`; }
-  function labReportPdfDownloadUrl(id) { return `${API_BASE}/lab-reports/${encodeURIComponent(id)}/pdf?demoPatientId=${encodeURIComponent(demoPatientId())}`; }
+  function documentDownloadUrl(id) { return `${API_BASE}/documents/${encodeURIComponent(id)}/download`; }
+  function labReportPdfDownloadUrl(id) { return `${API_BASE}/lab-reports/${encodeURIComponent(id)}/pdf`; }
   function integrationDownloadUrl(path) { return `${API_BASE}${path}`; }
-
-  function post(path, payload) {
-    return request(path, {
-      method: "POST",
-      body: JSON.stringify(payload)
-    });
-  }
 
   function importLabReport(payload) { return post("/integration/lab-report", payload); }
   function validateLabs(items) { return post("/labs/validate", items); }
@@ -201,13 +206,21 @@ window.HealthAPI = (() => {
   function assistantChat(payload) { return post("/assistant/chat", payload); }
 
   function reset() {
-    lastError = "Сброс локальных данных отключен: медицинские данные загружаются через backend API.";
+    lastError = "Сброс локальных данных отключен: данные загружаются через backend API.";
     return Promise.resolve({ ok: true });
   }
 
   return {
     API_BASE,
     apiMode,
+    login,
+    me,
+    logout,
+    changePassword,
+    adminListUsers,
+    adminCreateUser,
+    adminSetUserStatus,
+    adminResetPassword,
     getSummary,
     getPatient,
     getLabs,
