@@ -57,6 +57,13 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function requirePasswordReady(req, res, next) {
+  if (req.auth?.user?.mustChangePassword) {
+    return res.status(403).json({ error: "password_change_required" });
+  }
+  next();
+}
+
 function requireRole(role) {
   return (req, res, next) => {
     if (!req.auth) return res.status(401).json({ error: "authentication_required" });
@@ -69,6 +76,7 @@ module.exports = {
   COOKIE_NAME,
   attachAuth,
   requireAuth,
+  requirePasswordReady,
   requireRole,
   setSessionCookie,
   clearSessionCookie
