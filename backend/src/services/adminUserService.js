@@ -20,10 +20,11 @@ async function listUsers(adminUser) {
 async function createUser(adminUser, payload) {
   const login = normalizeLogin(payload.login);
   const displayName = String(payload.displayName || "").trim();
-  const role = payload.role === "admin" ? "admin" : "user";
+  const role = ["admin", "tester"].includes(payload.role) ? payload.role : "user";
   const patientId = payload.patientId ? String(payload.patientId).trim() : null;
   if (!login || login.length < 3) throw httpError("invalid_login", 400);
   if (!displayName) throw httpError("display_name_required", 400);
+  if (role !== "admin" && !patientId) throw httpError("patient_id_required", 400);
 
   const passwordHash = await hashPassword(payload.temporaryPassword);
   const user = {
