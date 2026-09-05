@@ -1,19 +1,7 @@
 window.App = (() => {
   let currentRoute = "dashboard";
+  let currentUser = null;
   let renderCorrectionPending = false;
-  const DEMO_AUTH_KEYS = {
-    authenticated: "isDemoAuthenticated",
-    patientId: "demoPatientId",
-    patientName: "demoPatientName",
-    patientProfile: "demoPatientProfile",
-    misCard: "demoMisCard"
-  };
-  const DEMO_PATIENTS = {
-    alexey: { id: "alexey", name: "Алексей Петров", initials: "АП", profile: "Метаболический риск", misCard: "MIS-248019" },
-    anna: { id: "anna", name: "Анна Смирнова", initials: "АС", profile: "Анемия / железодефицит", misCard: "MIS-391204" },
-    dmitry: { id: "dmitry", name: "Дмитрий Орлов", initials: "ДО", profile: "Печеночные ферменты", misCard: "MIS-582771" }
-  };
-  let selectedDemoPatientId = normalizeDemoPatientId(localStorage.getItem(DEMO_AUTH_KEYS.patientId));
 
   function routeRenderers() {
     return {
@@ -25,114 +13,57 @@ window.App = (() => {
       reports: Pages.reports,
       assistant: Pages.assistant,
       integration: Pages.integration,
-      profile: Pages.profile
+      profile: Pages.profile,
+      "admin-users": Pages["admin-users"]
     };
   }
 
-  function init() {
-    installWindowWheelFallback();
-    bindLogin();
-    bindNavigation();
-    bindModals();
-
-    document.getElementById("avatarMenuBtn").textContent = "АП";
-    document.getElementById("syncTime").textContent = "Откройте лабораторию, чтобы посмотреть динамику.";
-    const initialRoute = routeFromHash();
-    if (isDemoAuthenticated()) {
-      document.getElementById("avatarMenuBtn").textContent = selectedDemoPatient().initials;
-      currentRoute = routeRenderers()[initialRoute] ? initialRoute : "dashboard";
-      setLoginMode(false);
-      setHashForRoute(currentRoute);
-      render();
-      return;
-    }
-
-    currentRoute = "dashboard";
-    setLoginMode(true);
-    setLoginHash();
-    updateApiMode();
+  function userRoutes() {
+    return new Set(["dashboard", "labs", "lab-history", "appointments", "visits", "reports", "assistant", "profile"]);
   }
 
-  function selectedDemoPatient() {
-    selectedDemoPatientId = normalizeDemoPatientId(selectedDemoPatientId);
-    return DEMO_PATIENTS[selectedDemoPatientId];
+  function adminRoutes() {
+    return new Set(["admin-users", "integration"]);
   }
 
-  function normalizeDemoPatientId(patientId) {
-    return DEMO_PATIENTS[patientId] ? patientId : "alexey";
+  function defaultRoute() {
+    return currentUser?.role === "admin" ? "admin-users" : "dashboard";
   }
 
-  function updateDemoPatientPicker() {
-    const patient = selectedDemoPatient();
-    document.querySelectorAll("[data-demo-patient-id]").forEach((card) => {
-      card.classList.toggle("active", card.dataset.demoPatientId === patient.id);
-    });
-    const misCard = document.getElementById("demoMisCard");
-    const profile = document.getElementById("demoPatientProfile");
-    if (misCard) misCard.textContent = patient.misCard;
-    if (profile) profile.textContent = `${patient.profile} • данные подключены в демо-режиме.`;
+  function routeAllowed(route) {
+    if (!currentUser) return false;
+    return currentUser.role === "admin" ? adminRoutes().has(route) : userRoutes().has(route);
   }
 
   function routeFromHash() {
     return window.location.hash.replace("#", "");
   }
 
-  function isDemoAuthenticated() {
-    return localStorage.getItem(DEMO_AUTH_KEYS.authenticated) === "true";
-  }
-
-  // Demo-auth only: stores a local demo session, not production authentication.
-  function setDemoAuthenticated() {
-    const patient = selectedDemoPatient();
-    localStorage.setItem(DEMO_AUTH_KEYS.authenticated, "true");
-    localStorage.setItem(DEMO_AUTH_KEYS.patientId, patient.id);
-    localStorage.setItem(DEMO_AUTH_KEYS.patientName, patient.name);
-    localStorage.setItem(DEMO_AUTH_KEYS.patientProfile, patient.profile);
-    localStorage.setItem(DEMO_AUTH_KEYS.misCard, patient.misCard);
-    document.getElementById("avatarMenuBtn").textContent = patient.initials;
-  }
-
-  function clearDemoAuthenticated() {
-    localStorage.removeItem(DEMO_AUTH_KEYS.authenticated);
-    localStorage.removeItem(DEMO_AUTH_KEYS.patientId);
-    localStorage.removeItem(DEMO_AUTH_KEYS.patientName);
-    localStorage.removeItem(DEMO_AUTH_KEYS.patientProfile);
-    localStorage.removeItem(DEMO_AUTH_KEYS.misCard);
-    selectedDemoPatientId = "alexey";
-    updateDemoPatientPicker();
-  }
-
-  function clearSessionContext() {
-    PatientStorage.clearPatientSessionState();
-  }
-
   function setHashForRoute(route) {
-    if (window.location.hash !== `#${route}`) {
-      window.history.replaceState(null, "", `#${route}`);
-    }
+    if (window.location.hash !== `#${route}`) window.history.replaceState(null, "", `#${route}`);
   }
 
   function setLoginHash() {
-    if (window.location.hash !== "#login") {
-      window.history.replaceState(null, "", "#login");
-    }
+    if (window.location.hash !== "#login") window.history.replaceState(null, "", "#login");
   }
 
-  function installWindowWheelFallback() {
-    // assistant scroll fix: global wheel fallback breaks native trackpad scrolling in chat panes.
-    return;
-    document.addEventListener("wheel", (event) => {
-      if (event.defaultPrevented || event.ctrlKey || event.metaKey) return;
-      // assistant scroll fix: keep wheel events inside message pane
-      if (event.target.closest(".assistant-page")) return;
-      const interactiveScroll = event.target.closest(".lab-list, .attention-list, .reports-list, .history-list, .assistant-messages, .assistant-indicator-list, .table-wrap, .tabs, .metric-strip, .lab-hero-stats, .date-strip, .slot-grid, .modal.show");
-      if (interactiveScroll) return;
-      const root = document.scrollingElement || document.documentElement;
-      const canScroll = root.scrollHeight > window.innerHeight;
-      if (!canScroll || !event.deltaY) return;
-      event.preventDefault();
-      window.scrollBy({ top: event.deltaY, left: event.deltaX, behavior: "auto" });
-    }, { capture: true, passive: false });
+  function initials(name) {
+    const parts = String(name || "АЗ").trim().split(/\s+/).filter(Boolean);
+    return (parts.slice(0, 2).map((part) => part[0]).join("") || "АЗ").toUpperCase();
+  }
+
+  async function init() {
+    bindLogin();
+    bindNavigation();
+    bindModals();
+    bindPasswordChange();
+
+    try {
+      const result = await HealthAPI.me();
+      await acceptAuthenticatedUser(result.user, { restoreRoute: true });
+    } catch (error) {
+      showLogin(error.status && error.status !== 401 ? "Сервис временно недоступен" : "");
+    }
   }
 
   function setLoginMode(isLogin) {
@@ -140,7 +71,8 @@ window.App = (() => {
     document.body.classList.toggle("is-app", !isLogin);
     document.getElementById("loginView").classList.toggle("hidden", !isLogin);
     document.getElementById("appView").classList.toggle("hidden", isLogin);
-    document.getElementById("bottomNav").style.display = isLogin ? "none" : "";
+    const showBottomNav = !isLogin && currentUser?.role === "user";
+    document.getElementById("bottomNav").style.display = showBottomNav ? "" : "none";
     const sidebar = document.getElementById("sidebar");
     if (sidebar) sidebar.classList.remove("open");
     const profileMenu = document.getElementById("profileMenu");
@@ -148,134 +80,144 @@ window.App = (() => {
       profileMenu.hidden = true;
       profileMenu.classList.remove("show");
     }
-    if (isLogin && window.UI) UI.closeModals();
+  }
+
+  function applyRoleNavigation() {
+    const isAdmin = currentUser?.role === "admin";
+    document.querySelectorAll("[data-admin-only]").forEach((element) => { element.hidden = !isAdmin; });
+    document.querySelectorAll("[data-user-only]").forEach((element) => { element.hidden = isAdmin; });
+    document.getElementById("bottomNav").style.display = isAdmin ? "none" : "";
+  }
+
+  function updateIdentity() {
+    const avatar = document.getElementById("avatarMenuBtn");
+    if (avatar) avatar.textContent = initials(currentUser?.displayName);
+    const menuUser = document.getElementById("profileMenuUser");
+    if (menuUser) menuUser.textContent = currentUser ? `${currentUser.displayName} · ${currentUser.login}` : "";
+    PatientStorage.setCurrentPatientId(currentUser?.patientId || "");
+  }
+
+  async function acceptAuthenticatedUser(user, options = {}) {
+    currentUser = user;
+    updateIdentity();
+    applyRoleNavigation();
+    setLoginMode(false);
+
+    if (currentUser.mustChangePassword) {
+      currentRoute = defaultRoute();
+      UI.setRouteTitle(currentRoute);
+      UI.root().innerHTML = `<section class="card"><div class="label">Безопасность</div><h2>Требуется смена временного пароля</h2><p class="muted">После смены пароля необходимо будет войти заново.</p></section>`;
+      openPasswordChangeModal();
+      return;
+    }
+
+    const requestedRoute = options.restoreRoute ? routeFromHash() : defaultRoute();
+    currentRoute = routeAllowed(requestedRoute) && routeRenderers()[requestedRoute] ? requestedRoute : defaultRoute();
+    setHashForRoute(currentRoute);
+    await render();
+  }
+
+  function showLogin(message = "") {
+    currentUser = null;
+    PatientStorage.clearPatientSessionState();
+    setLoginMode(true);
+    setLoginHash();
+    UI.closeModals();
+    const error = document.getElementById("loginError");
+    if (error) {
+      error.textContent = message || "";
+      error.hidden = !message;
+    }
   }
 
   function bindLogin() {
     document.getElementById("loginForm").addEventListener("submit", handleLoginSubmit);
-    window.addEventListener("hashchange", handleRegisterHash);
-    updateDemoPatientPicker();
+    document.querySelectorAll("[data-legal-modal]").forEach((button) => {
+      button.onclick = () => UI.openModal(button.dataset.legalModal);
+    });
+  }
 
-    document.querySelectorAll("[data-demo-patient-id]").forEach(card => {
-      card.onclick = () => {
-        const nextPatientId = normalizeDemoPatientId(card.dataset.demoPatientId);
-        if (nextPatientId !== selectedDemoPatientId) clearSessionContext();
-        selectedDemoPatientId = nextPatientId;
-        updateDemoPatientPicker();
+  async function handleLoginSubmit(event) {
+    event.preventDefault();
+    const errorElement = document.getElementById("loginError");
+    errorElement.hidden = true;
+    const login = document.getElementById("loginInput").value.trim();
+    const password = document.getElementById("passwordInput").value;
+    if (!login || !password) return;
+
+    try {
+      const result = await HealthAPI.login(login, password);
+      await acceptAuthenticatedUser(result.user);
+    } catch (error) {
+      const messages = {
+        invalid_credentials: "Неверный логин или пароль.",
+        user_blocked: "Учётная запись заблокирована администратором."
       };
-    });
-
-    document.querySelectorAll("[data-auth-tab]").forEach(btn => {
-      btn.onclick = () => {
-        const tab = btn.dataset.authTab;
-        hideAuthMessages();
-        document.querySelectorAll("[data-auth-tab]").forEach(item => item.classList.toggle("active", item === btn));
-        document.querySelectorAll(".auth-panel").forEach(panel => {
-          panel.classList.remove("active");
-          panel.hidden = true;
-        });
-        const activePanel = document.getElementById(tab === "login" ? "loginPanel" : "registerPanel");
-        activePanel.hidden = false;
-        activePanel.classList.add("active");
-      };
-    });
-
-    document.getElementById("registerDemoBtn").onclick = handleRegisterSubmit;
-
-    document.querySelectorAll("[data-legal-modal]").forEach(btn => {
-      btn.onclick = () => UI.openModal(btn.dataset.legalModal);
-    });
-  }
-
-  async function handleLoginSubmit(e) {
-      e.preventDefault();
-      hideAuthMessages();
-      if (!document.getElementById("loginConsent").checked) {
-        UI.toast("Подтвердите согласие на обработку данных");
-        return;
-      }
-      const code = document.getElementById("smsCodeInput").value.trim();
-      if (code !== "1234") {
-        document.getElementById("loginError").hidden = false;
-        UI.toast("Введите демо-код 1234");
-        return;
-      }
-      setDemoAuthenticated();
-      currentRoute = "dashboard";
-      setHashForRoute(currentRoute);
-      setLoginMode(false);
-      await render();
-  }
-
-  function handleRegisterSubmit(e) {
-    e.preventDefault();
-    showRegisterDemoMessage();
-  }
-
-  function handleRegisterHash() {
-    if (window.location.hash !== "#register-demo") return;
-    showRegisterDemoMessage();
-  }
-
-  function showRegisterDemoMessage() {
-    const consent = document.getElementById("registerConsent");
-    if (!consent.checked) {
-      UI.toast("Подтвердите согласие на обработку данных");
-      return;
+      errorElement.textContent = messages[error.code] || "Не удалось выполнить вход.";
+      errorElement.hidden = false;
     }
-    const message = document.getElementById("registerDemoMessage");
-    message.hidden = false;
-    message.removeAttribute("hidden");
-    UI.toast("Регистрация в демо-версии имитируется");
   }
 
-  function hideAuthMessages() {
-    const loginError = document.getElementById("loginError");
-    if (loginError) loginError.hidden = true;
+  function openPasswordChangeModal() {
+    document.getElementById("passwordChangeError").hidden = true;
+    UI.openModal("passwordChangeModal");
+    setTimeout(() => document.getElementById("currentPasswordInput")?.focus(), 0);
+  }
+
+  function bindPasswordChange() {
+    document.getElementById("passwordChangeForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const errorElement = document.getElementById("passwordChangeError");
+      errorElement.hidden = true;
+      const currentPassword = document.getElementById("currentPasswordInput").value;
+      const newPassword = document.getElementById("newPasswordInput").value;
+      const confirmation = document.getElementById("newPasswordConfirmInput").value;
+
+      if (newPassword !== confirmation) {
+        errorElement.textContent = "Новые пароли не совпадают.";
+        errorElement.hidden = false;
+        return;
+      }
+
+      try {
+        await HealthAPI.changePassword(currentPassword, newPassword);
+        document.getElementById("currentPasswordInput").value = "";
+        document.getElementById("newPasswordInput").value = "";
+        document.getElementById("newPasswordConfirmInput").value = "";
+        showLogin("Пароль изменён. Войдите с новым паролем.");
+      } catch (error) {
+        const messages = {
+          invalid_current_password: "Текущий пароль указан неверно.",
+          password_too_short: "Новый пароль должен быть не короче 10 символов."
+        };
+        errorElement.textContent = messages[error.code] || "Не удалось изменить пароль.";
+        errorElement.hidden = false;
+      }
+    });
   }
 
   function bindNavigation() {
     document.body.addEventListener("pointerdown", (event) => {
       const navButton = event.target.closest(".nav-link[data-route], .bottom-link[data-route]");
-      if (!navButton) return;
+      if (!navButton || navButton.hidden) return;
       event.preventDefault();
       navigate(navButton.dataset.route);
     }, true);
 
-    document.querySelectorAll("[data-route]").forEach(btn => {
-      btn.onclick = (e) => {
-        e.preventDefault();
-        const route = btn.dataset.route;
-        navigate(route);
-      };
+    document.body.addEventListener("click", (event) => {
+      const action = event.target.closest("[data-route-action]");
+      if (!action || action.hidden) return;
+      event.preventDefault();
+      if (window.LabState && action.dataset.labMode) {
+        LabState.mode = action.dataset.labMode;
+        LabState.group = "Все";
+        LabState.onlyAbnormal = false;
+      }
+      if (window.LabState && action.dataset.labCode) LabState.selectedCode = action.dataset.labCode;
+      navigate(action.dataset.routeAction);
     });
 
-    document.body.addEventListener("click", (e) => {
-      const action = e.target.closest("[data-route-action]");
-      if (action) {
-        e.preventDefault();
-        if (window.LabState && action.dataset.labMode) {
-          LabState.mode = action.dataset.labMode;
-          LabState.group = "Все";
-          LabState.onlyAbnormal = false;
-        }
-        if (window.LabState && action.dataset.labCode) {
-          LabState.selectedCode = action.dataset.labCode;
-        }
-        navigate(action.dataset.routeAction);
-        return;
-      }
-
-      const routeButton = e.target.closest("[data-route]");
-      if (routeButton) {
-        e.preventDefault();
-        navigate(routeButton.dataset.route);
-      }
-    });
-
-    document.getElementById("menuBtn").onclick = () => {
-      document.getElementById("sidebar").classList.toggle("open");
-    };
+    document.getElementById("menuBtn").onclick = () => document.getElementById("sidebar").classList.toggle("open");
 
     document.getElementById("avatarMenuBtn").onclick = (event) => {
       event.stopPropagation();
@@ -293,80 +235,79 @@ window.App = (() => {
     });
 
     document.getElementById("logoutBtn").onclick = logout;
-
-    const quickSyncBtn = document.getElementById("quickSyncBtn");
-    if (quickSyncBtn) quickSyncBtn.onclick = () => render();
-
-    const openApiModalBtn = document.getElementById("openApiModalBtn");
-    if (openApiModalBtn) openApiModalBtn.onclick = () => UI.openModal("apiModal");
-
     document.getElementById("goVisitsBtn").onclick = () => {
       UI.closeModals();
       navigate("visits");
     };
 
     window.addEventListener("hashchange", () => {
-      const route = window.location.hash.replace("#", "");
-      if (route === "register-demo") {
-        handleRegisterHash();
+      if (!currentUser) {
+        setLoginHash();
         return;
       }
-      if (!isDemoAuthenticated()) {
-        setLoginMode(true);
-        if (route !== "login") setLoginHash();
+      if (currentUser.mustChangePassword) {
+        openPasswordChangeModal();
         return;
       }
+      const route = routeFromHash();
       if (route === "login") {
         logout();
         return;
       }
-      if (route && routeRenderers()[route]) navigate(route);
+      if (routeAllowed(route) && routeRenderers()[route]) navigate(route);
+      else navigate(defaultRoute());
     });
   }
 
   function bindModals() {
-    document.getElementById("modalBackdrop").onclick = UI.closeModals;
-    document.querySelectorAll("[data-close-modal]").forEach(btn => btn.onclick = UI.closeModals);
+    document.getElementById("modalBackdrop").onclick = () => {
+      if (currentUser?.mustChangePassword) return;
+      UI.closeModals();
+    };
+    document.querySelectorAll("[data-close-modal]").forEach((button) => {
+      button.onclick = () => UI.closeModals();
+    });
   }
 
   async function navigate(route) {
-    if (!isDemoAuthenticated()) {
-      currentRoute = "dashboard";
-      setLoginMode(true);
-      setLoginHash();
+    if (!currentUser) {
+      showLogin();
       return;
     }
-    const renderers = routeRenderers();
-    if (!renderers[route]) route = "dashboard";
+    if (currentUser.mustChangePassword) {
+      openPasswordChangeModal();
+      return;
+    }
+    if (!routeAllowed(route) || !routeRenderers()[route]) route = defaultRoute();
     currentRoute = route;
     setHashForRoute(route);
-    document.querySelectorAll(".nav-link").forEach(x => x.classList.toggle("active", x.dataset.route === route));
-    document.querySelectorAll(".bottom-link").forEach(x => x.classList.toggle("active", x.dataset.route === route));
+    document.querySelectorAll(".nav-link").forEach((item) => item.classList.toggle("active", item.dataset.route === route));
+    document.querySelectorAll(".bottom-link").forEach((item) => item.classList.toggle("active", item.dataset.route === route));
     document.getElementById("sidebar").classList.remove("open");
     await render();
   }
 
-  function logout() {
-    clearDemoAuthenticated();
-    clearSessionContext();
-    currentRoute = "dashboard";
-    setLoginHash();
-    setLoginMode(true);
-    document.querySelectorAll(".nav-link").forEach(x => x.classList.toggle("active", x.dataset.route === "dashboard"));
-    document.querySelectorAll(".bottom-link").forEach(x => x.classList.toggle("active", x.dataset.route === "dashboard"));
-    UI.setRouteTitle("dashboard");
+  async function logout() {
+    try { await HealthAPI.logout(); } catch (error) { /* session may already be gone */ }
+    showLogin();
+    document.getElementById("passwordInput").value = "";
   }
 
   async function render() {
-    if (!isDemoAuthenticated()) {
-      setLoginMode(true);
-      setLoginHash();
+    if (!currentUser) {
+      showLogin();
       return;
     }
+    if (currentUser.mustChangePassword) {
+      openPasswordChangeModal();
+      return;
+    }
+
     UI.setRouteTitle(currentRoute);
     const renderers = routeRenderers();
     const routeAtStart = currentRoute;
-    const renderer = renderers[currentRoute] || renderers.dashboard;
+    const renderer = renderers[currentRoute] || renderers[defaultRoute()];
+
     try {
       if (typeof renderer !== "function") throw new Error(`Renderer is not registered for route: ${currentRoute}`);
       await renderer();
@@ -378,23 +319,20 @@ window.App = (() => {
       }
       updateApiMode();
     } catch (error) {
-      updateApiMode();
-      const state = HealthAPI.apiMode();
-      if (["demo_context_required", "invalid_demo_patient"].includes(error.code || error.message || state.lastErrorCode)) {
-        UI.root().innerHTML = `
-          <section class="api-alert">
-            <b>Демо-пациент не выбран. Вернитесь на экран входа.</b><br>
-            <button class="btn primary" id="backToDemoPatientsBtn">К выбору пациента</button>
-          </section>
-        `;
-        const backBtn = document.getElementById("backToDemoPatientsBtn");
-        if (backBtn) backBtn.onclick = logout;
+      if (error.status === 401 || error.code === "authentication_required") {
+        showLogin("Сессия завершена. Войдите снова.");
         return;
       }
+      if (error.code === "password_change_required") {
+        currentUser.mustChangePassword = true;
+        openPasswordChangeModal();
+        return;
+      }
+      updateApiMode();
       UI.root().innerHTML = `
         <section class="api-alert">
           <b>Не удалось загрузить данные.</b><br>
-          Проверьте, что кабинет запущен, и обновите страницу.
+          Попробуйте обновить страницу позже.
         </section>
       `;
     }
@@ -402,26 +340,18 @@ window.App = (() => {
 
   function updateApiMode() {
     const state = HealthAPI.apiMode();
-    const label = state.label;
     const syncStatus = document.getElementById("syncStatusText");
-    const apiModePill = document.getElementById("apiModePill");
     const syncTime = document.getElementById("syncTime");
     const isUnavailable = state.mode === "unavailable";
-    if (syncStatus) syncStatus.textContent = isUnavailable ? "Кабинет временно недоступен" : "Результаты обновлены";
-    if (apiModePill) {
-      apiModePill.textContent = label;
-      apiModePill.classList.toggle("backend", state.mode === "backend");
-      apiModePill.classList.toggle("local", state.mode !== "backend");
-      apiModePill.title = isUnavailable ? "Кабинет временно недоступен" : "Данные обновлены";
-    }
-    if (syncTime) {
-      syncTime.textContent = isUnavailable
-        ? "Попробуйте обновить страницу позже."
-        : "Откройте лабораторию, чтобы посмотреть динамику.";
-    }
+    if (syncStatus) syncStatus.textContent = isUnavailable ? "Кабинет временно недоступен" : "Кабинет готов";
+    if (syncTime) syncTime.textContent = isUnavailable ? "Попробуйте обновить страницу позже." : "Данные закрытого демо-контура.";
   }
 
-  return { init, navigate, render, updateApiMode, handleLoginSubmit, handleRegisterSubmit, logout };
+  function user() {
+    return currentUser;
+  }
+
+  return { init, navigate, render, updateApiMode, handleLoginSubmit, logout, user };
 })();
 
 if (document.readyState === "loading") {
