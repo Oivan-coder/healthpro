@@ -240,7 +240,7 @@
 
 @media (max-width: 900px) {
   .assistant-page {
-    gap: 12px;
+    display: block;
     width: 100%;
     max-width: 100%;
     padding: 0;
@@ -248,32 +248,8 @@
     overflow-x: hidden;
   }
 
+  /* The top bar already says “Помощник”; avoid a second oversized title on phones. */
   .assistant-hero {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    padding: 0 0 4px;
-  }
-
-  .assistant-hero h2 {
-    width: 100%;
-    max-width: 100%;
-    margin: 0 0 6px;
-    font-size: 22px;
-    line-height: 1.2;
-    white-space: normal;
-  }
-
-  .assistant-hero p {
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-    font-size: 14px;
-    line-height: 1.45;
-    white-space: normal;
-  }
-
-  .assistant-safe-wrap {
     display: none;
   }
 
@@ -296,7 +272,7 @@
     order: -1;
     position: static;
     display: block;
-    margin: 0;
+    margin: 0 0 10px;
   }
 
   .assistant-side > .assistant-side-card:not(.assistant-picker-card) {
@@ -306,9 +282,10 @@
   .assistant-picker-card {
     width: 100%;
     max-width: 100%;
-    padding: 12px;
+    padding: 10px 12px;
     margin: 0;
     overflow: visible;
+    border-radius: 16px;
   }
 
   .assistant-side-head,
@@ -319,7 +296,8 @@
   }
 
   .assistant-side-head .label {
-    font-size: 11px;
+    font-size: 10px;
+    margin-bottom: 0;
   }
 
   .assistant-side-head p {
@@ -327,16 +305,27 @@
   }
 
   .assistant-picker-shell {
-    margin-top: 7px;
+    margin-top: 6px;
   }
 
   .assistant-picker-button {
-    min-height: 68px;
+    min-height: 58px;
+    padding: 10px 12px !important;
   }
 
   .assistant-picker-button > span {
     min-width: 0;
     overflow: hidden;
+  }
+
+  .assistant-picker-button b {
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  .assistant-picker-button small {
+    font-size: 11px;
+    line-height: 1.3;
   }
 
   .assistant-picker-button b,
@@ -348,37 +337,47 @@
 
   .assistant-selected-note,
   .assistant-reset-context {
-    margin-top: 7px !important;
+    margin-top: 6px !important;
   }
 
+  /* Collapse the old chat “panel” into a normal content flow. */
   .assistant-chat-card {
+    display: block !important;
     width: 100%;
     max-width: 100%;
-    height: auto;
-    min-height: 0;
-    padding: 12px;
-    border-radius: 18px;
+    height: auto !important;
+    min-height: 0 !important;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
     overflow: visible;
   }
 
-  /* On mobile the chat header duplicated information and caused layout conflicts with legacy rules. */
   .assistant-chat-head {
     display: none;
   }
 
   .assistant-messages {
+    display: block !important;
     width: 100%;
     max-width: 100%;
-    flex: none;
-    max-height: none;
-    overflow: visible;
-    padding: 2px 0 8px;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0;
+    margin: 0 0 8px;
   }
 
   .assistant-pre-summary {
+    display: block;
     width: 100%;
     max-width: 100%;
     padding: 12px 13px;
+    margin: 0;
+    border-radius: 15px;
   }
 
   .assistant-pre-summary .assistant-summary-lines p {
@@ -396,6 +395,7 @@
     width: 100%;
     max-width: 100%;
     grid-template-columns: minmax(0,1fr);
+    margin-bottom: 8px;
   }
 
   .assistant-mini-trend {
@@ -409,35 +409,44 @@
   }
 
   .assistant-quick {
-    width: calc(100% + 24px);
-    max-width: none;
-    margin: 0 -12px;
-    padding: 8px 12px 5px;
-  }
-
-  .assistant-form {
-    position: sticky;
-    bottom: calc(82px + env(safe-area-inset-bottom));
-    z-index: 12;
-    display: grid;
-    grid-template-columns: 38px minmax(0,1fr) 44px;
+    display: flex;
     width: 100%;
     max-width: 100%;
-    margin: 4px 0 0;
+    margin: 8px 0 10px;
+    padding: 0 0 3px;
+    gap: 6px;
+    overflow-x: auto;
+  }
+
+  .assistant-prompt-card {
+    min-height: 34px;
+    padding: 6px 10px;
+  }
+
+  /* Do not float over the summary/content. It follows the quick actions naturally. */
+  .assistant-form {
+    position: static !important;
+    display: grid !important;
+    grid-template-columns: 38px minmax(0,1fr) 44px !important;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
     padding: 5px;
-    border-radius: 16px;
-    background: rgba(255,255,255,.97);
-    box-shadow: 0 8px 24px rgba(36,64,84,.12);
-    backdrop-filter: blur(16px);
+    border-radius: 15px;
+    background: #fff;
+    box-shadow: none;
+    backdrop-filter: none;
     overflow: visible;
   }
 
   .assistant-form .assistant-add-menu {
     grid-column: 1;
+    grid-row: 1;
   }
 
   .assistant-form input {
     grid-column: 2;
+    grid-row: 1;
     width: 100%;
     max-width: 100%;
     min-width: 0;
@@ -466,16 +475,8 @@
 }
 
 @media (max-width: 480px) {
-  .assistant-page {
-    gap: 10px;
-  }
-
-  .assistant-hero h2 {
-    font-size: 21px;
-  }
-
-  .assistant-chat-card {
-    padding: 10px;
+  .assistant-picker-card {
+    padding: 9px 10px;
   }
 
   .assistant-pre-summary {
@@ -485,14 +486,5 @@
   .assistant-message:not(.assistant-pre-summary):not(.assistant-welcome) {
     max-width: 96%;
     padding: 12px;
-  }
-
-  .assistant-prompt-card {
-    min-height: 34px;
-    padding-inline: 10px;
-  }
-
-  .assistant-form {
-    bottom: calc(78px + env(safe-area-inset-bottom));
   }
 }
