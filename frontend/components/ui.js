@@ -144,15 +144,71 @@ window.UI = (() => {
     setTimeout(() => el.classList.remove("show"), 1800);
   }
 
+  let activeModal = null;
+  let modalTrigger = null;
+  let modalBackground = [];
+  const focusableSelector = "button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+
+  function updateModalViewport() {
+    if (!activeModal) return;
+    const viewport = window.visualViewport;
+    document.documentElement.style.setProperty("--dialog-viewport-height", `${viewport?.height || window.innerHeight}px`);
+    document.documentElement.style.setProperty("--dialog-viewport-top", `${viewport?.offsetTop || 0}px`);
+  }
+
   function openModal(id) {
+    const modal = document.getElementById(id);
+    if (!modal || modal === activeModal) return;
+    if (!activeModal) {
+      modalTrigger = document.activeElement;
+      modalBackground = [...document.querySelectorAll("#loginView, #appView, #bottomNav")]
+        .map(element => ({ element, wasInert: element.hasAttribute("inert") }));
+      modalBackground.forEach(({ element }) => element.setAttribute("inert", ""));
+    } else {
+      activeModal.classList.remove("show");
+    }
+    activeModal = modal;
+    document.body.classList.add("modal-open");
     document.getElementById("modalBackdrop").classList.add("show");
-    document.getElementById(id).classList.add("show");
+    modal.classList.add("show");
+    updateModalViewport();
+    (modal.querySelector(focusableSelector) || modal).focus({ preventScroll: true });
   }
 
   function closeModals() {
     document.getElementById("modalBackdrop").classList.remove("show");
     document.querySelectorAll(".modal").forEach(m => m.classList.remove("show"));
+    document.body.classList.remove("modal-open");
+    modalBackground.forEach(({ element, wasInert }) => element.toggleAttribute("inert", wasInert));
+    modalBackground = [];
+    activeModal = null;
+    if (modalTrigger?.isConnected && !modalTrigger.closest("[hidden], .hidden, [inert]")) {
+      modalTrigger.focus({ preventScroll: true });
+    }
+    modalTrigger = null;
   }
+
+  document.addEventListener("keydown", (event) => {
+    if (!activeModal) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (activeModal.dataset.dismissible !== "false") closeModals();
+    } else if (event.key === "Tab") {
+      const items = [...activeModal.querySelectorAll(focusableSelector)].filter(item => !item.closest("[hidden]"));
+      const first = items[0] || activeModal;
+      const last = items[items.length - 1] || activeModal;
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === activeModal)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || document.activeElement === activeModal)) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  });
+  window.visualViewport?.addEventListener("resize", updateModalViewport);
+  window.visualViewport?.addEventListener("scroll", updateModalViewport);
+  window.addEventListener("resize", updateModalViewport);
 
   function setRouteTitle(route) {
     const titles = {

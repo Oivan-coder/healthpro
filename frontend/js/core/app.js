@@ -2,6 +2,43 @@ window.App = (() => {
   let currentRoute = "dashboard";
   let currentUser = null;
   let renderCorrectionPending = false;
+  const compactNavigation = window.matchMedia("(max-width: 1180px)");
+
+  function closeProfileMenu() {
+    const menu = document.getElementById("profileMenu");
+    menu.hidden = true;
+    menu.classList.remove("show");
+    document.getElementById("avatarMenuBtn").setAttribute("aria-expanded", "false");
+  }
+
+  function setSidebarOpen(open, restoreFocus = false) {
+    const expanded = Boolean(open && compactNavigation.matches);
+    const sidebar = document.getElementById("sidebar");
+    sidebar.classList.toggle("open", expanded);
+    sidebar.toggleAttribute("inert", compactNavigation.matches && !expanded);
+    document.body.classList.toggle("nav-open", expanded);
+    document.querySelector(".workspace").toggleAttribute("inert", expanded);
+    document.getElementById("bottomNav").toggleAttribute("inert", expanded);
+    document.getElementById("navOverlay").hidden = !expanded;
+    const button = document.getElementById("menuBtn");
+    button.setAttribute("aria-expanded", String(expanded));
+    if (expanded) {
+      closeProfileMenu();
+      const firstLink = sidebar.querySelector(".nav-link.active:not([hidden])") || sidebar.querySelector(".nav-link:not([hidden])");
+      firstLink?.focus({ preventScroll: true });
+    } else if (restoreFocus) {
+      button.focus({ preventScroll: true });
+    }
+  }
+
+  function syncRouteNavigation() {
+    document.querySelectorAll(".nav-link, .bottom-link").forEach((item) => {
+      const active = item.dataset.route === currentRoute;
+      item.classList.toggle("active", active);
+      if (active) item.setAttribute("aria-current", "page");
+      else item.removeAttribute("aria-current");
+    });
+  }
 
   function routeRenderers() {
     return {
@@ -73,13 +110,9 @@ window.App = (() => {
     document.getElementById("appView").classList.toggle("hidden", isLogin);
     const showBottomNav = !isLogin && currentUser?.role === "user";
     document.getElementById("bottomNav").style.display = showBottomNav ? "" : "none";
-    const sidebar = document.getElementById("sidebar");
-    if (sidebar) sidebar.classList.remove("open");
-    const profileMenu = document.getElementById("profileMenu");
-    if (profileMenu) {
-      profileMenu.hidden = true;
-      profileMenu.classList.remove("show");
-    }
+    document.body.classList.toggle("has-bottom-nav", showBottomNav);
+    setSidebarOpen(false);
+    closeProfileMenu();
   }
 
   function applyRoleNavigation() {
@@ -114,10 +147,11 @@ window.App = (() => {
     const requestedRoute = options.restoreRoute ? routeFromHash() : defaultRoute();
     currentRoute = routeAllowed(requestedRoute) && routeRenderers()[requestedRoute] ? requestedRoute : defaultRoute();
     setHashForRoute(currentRoute);
+    syncRouteNavigation();
     await render();
   }
 
-  function showLogin(message = "") {
+  function showLogin(message = "", success = false) {
     currentUser = null;
     PatientStorage.clearPatientSessionState();
     setLoginMode(true);
@@ -125,6 +159,7 @@ window.App = (() => {
     UI.closeModals();
     const error = document.getElementById("loginError");
     if (error) {
+      error.classList.toggle("is-success", success);
       error.textContent = message || "";
       error.hidden = !message;
     }
@@ -140,6 +175,7 @@ window.App = (() => {
   async function handleLoginSubmit(event) {
     event.preventDefault();
     const errorElement = document.getElementById("loginError");
+    errorElement.classList.remove("is-success");
     errorElement.hidden = true;
     const login = document.getElementById("loginInput").value.trim();
     const password = document.getElementById("passwordInput").value;
@@ -184,7 +220,7 @@ window.App = (() => {
         document.getElementById("currentPasswordInput").value = "";
         document.getElementById("newPasswordInput").value = "";
         document.getElementById("newPasswordConfirmInput").value = "";
-        showLogin("Пароль изменён. Войдите с новым паролем.");
+        showLogin("Пароль изменён. Войдите с новым паролем.", true);
       } catch (error) {
         const messages = {
           invalid_current_password: "Текущий пароль указан неверно.",
@@ -197,13 +233,6 @@ window.App = (() => {
   }
 
   function bindNavigation() {
-    document.body.addEventListener("pointerdown", (event) => {
-      const navButton = event.target.closest(".nav-link[data-route], .bottom-link[data-route]");
-      if (!navButton || navButton.hidden) return;
-      event.preventDefault();
-      navigate(navButton.dataset.route);
-    }, true);
-
     document.body.addEventListener("click", (event) => {
       const action = event.target.closest("[data-route-action]");
       if (!action || action.hidden) return;
@@ -214,23 +243,50 @@ window.App = (() => {
         LabState.onlyAbnormal = false;
       }
       if (window.LabState && action.dataset.labCode) LabState.selectedCode = action.dataset.labCode;
+      closeProfileMenu();
       navigate(action.dataset.routeAction);
     });
 
-    document.getElementById("menuBtn").onclick = () => document.getElementById("sidebar").classList.toggle("open");
+    setSidebarOpen(false);
+    document.getElementById("menuBtn").onclick = () => setSidebarOpen(!document.getElementById("sidebar").classList.contains("open"));
+    document.getElementById("closeSidebarBtn").onclick = () => setSidebarOpen(false, true);
+    document.getElementById("navOverlay").onclick = () => setSidebarOpen(false, true);
+    compactNavigation.addEventListener("change", () => setSidebarOpen(false));
+
+    document.addEventListener("keydown", (event) => {
+      const sidebar = document.getElementById("sidebar");
+      if (event.key === "Escape") {
+        if (sidebar.classList.contains("open")) setSidebarOpen(false, true);
+        else if (!document.getElementById("profileMenu").hidden) {
+          closeProfileMenu();
+          document.getElementById("avatarMenuBtn").focus();
+        }
+      }
+      if (event.key === "Tab" && sidebar.classList.contains("open")) {
+        const items = [...sidebar.querySelectorAll("button, a[href]")].filter(item => !item.hidden);
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
 
     document.getElementById("avatarMenuBtn").onclick = (event) => {
       event.stopPropagation();
       const menu = document.getElementById("profileMenu");
       menu.hidden = !menu.hidden;
       menu.classList.toggle("show", !menu.hidden);
+      event.currentTarget.setAttribute("aria-expanded", String(!menu.hidden));
     };
 
     document.body.addEventListener("click", (event) => {
       if (!event.target.closest(".top-actions")) {
-        const menu = document.getElementById("profileMenu");
-        menu.hidden = true;
-        menu.classList.remove("show");
+        closeProfileMenu();
       }
     });
 
@@ -281,10 +337,13 @@ window.App = (() => {
     if (!routeAllowed(route) || !routeRenderers()[route]) route = defaultRoute();
     currentRoute = route;
     setHashForRoute(route);
-    document.querySelectorAll(".nav-link").forEach((item) => item.classList.toggle("active", item.dataset.route === route));
-    document.querySelectorAll(".bottom-link").forEach((item) => item.classList.toggle("active", item.dataset.route === route));
-    document.getElementById("sidebar").classList.remove("open");
+    syncRouteNavigation();
+    setSidebarOpen(false);
     await render();
+    if (currentUser && !currentUser.mustChangePassword) {
+      UI.root().focus({ preventScroll: true });
+      window.scrollTo(0, 0);
+    }
   }
 
   async function logout() {

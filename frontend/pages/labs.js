@@ -89,9 +89,11 @@ function reportSourceText(report) {
 function syncLabListHeight() {
   const listCard = document.querySelector(".lab-list-card");
   const detailCard = document.querySelector(".lab-detail");
-  const isDesktop = window.matchMedia("(min-width: 901px)").matches;
+  const listBounds = listCard?.getBoundingClientRect();
+  const detailBounds = detailCard?.getBoundingClientRect();
+  const isSideBySide = listBounds && detailBounds && detailBounds.left > listBounds.left && Math.abs(detailBounds.top - listBounds.top) < 2;
 
-  if (!listCard || !detailCard || !isDesktop) {
+  if (!listCard || !detailCard || !isSideBySide) {
     if (listCard) {
       listCard.classList.remove("is-height-synced");
       listCard.style.height = "";
@@ -99,7 +101,7 @@ function syncLabListHeight() {
     return;
   }
 
-  const detailHeight = Math.ceil(detailCard.getBoundingClientRect().height);
+  const detailHeight = Math.ceil(detailBounds.height);
   if (!detailHeight) return;
 
   listCard.classList.add("is-height-synced");
@@ -677,7 +679,7 @@ window.Pages["lab-history"] = async function renderLabHistory() {
           }).join("") || UI.renderEmpty("Ничего не найдено.")}
         </div>
       ` : `
-        <div class="history-table-card feed-card">
+        <div class="history-table-card feed-card" tabindex="0" role="region" aria-label="История анализов, таблицу можно прокручивать по горизонтали">
           <div class="history-table-grid" role="table" aria-label="История лабораторных показателей">
             <div class="history-table-row history-table-head" role="row">
               <span>Дата</span>

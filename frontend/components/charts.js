@@ -1,5 +1,41 @@
 window.Charts = (() => {
   const colors = ["#007aff", "#ff9500", "#34c759", "#af52de", "#ff3b30", "#5ac8fa"];
+  const chartViews = new Map();
+  let redrawFrame = 0;
+  const resizeObserver = window.ResizeObserver ? new ResizeObserver(scheduleRedraw) : null;
+
+  function rememberChart(canvas, redraw) {
+    for (const oldCanvas of chartViews.keys()) {
+      if (!oldCanvas.isConnected) {
+        resizeObserver?.unobserve(oldCanvas);
+        chartViews.delete(oldCanvas);
+      }
+    }
+    if (!chartViews.has(canvas)) resizeObserver?.observe(canvas);
+    chartViews.set(canvas, redraw);
+  }
+
+  function scheduleRedraw() {
+    if (redrawFrame) return;
+    redrawFrame = requestAnimationFrame(() => {
+      redrawFrame = 0;
+      for (const [canvas, redraw] of chartViews) {
+        if (canvas.isConnected) redraw();
+        else {
+          resizeObserver?.unobserve(canvas);
+          chartViews.delete(canvas);
+        }
+      }
+    });
+  }
+
+  function chartFont(canvas, size, weight = 400) {
+    return `${weight} ${size}px ${getComputedStyle(canvas).fontFamily || 'Arial, sans-serif'}`;
+  }
+
+  window.addEventListener("resize", scheduleRedraw);
+  document.fonts?.ready.then(scheduleRedraw);
+  document.fonts?.addEventListener("loadingdone", scheduleRedraw);
 
   function palette(index) {
     return colors[index % colors.length];
@@ -7,13 +43,14 @@ window.Charts = (() => {
 
   function drawLabChart(canvas, lab) {
     if (!canvas || !lab) return;
+    rememberChart(canvas, () => drawLabChart(canvas, lab));
     const ctx = canvas.getContext("2d");
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const cssHeight = window.innerWidth <= 820 ? (window.innerWidth <= 430 ? 240 : 260) : 330;
+    const cssHeight = rect.height || (window.innerWidth <= 820 ? (window.innerWidth <= 430 ? 240 : 260) : 330);
 
-    canvas.width = Math.max(320, rect.width * dpr);
-    canvas.height = cssHeight * dpr;
+    canvas.width = Math.max(1, Math.round((rect.width || 800) * dpr));
+    canvas.height = Math.round(cssHeight * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const w = rect.width || 800;
@@ -54,7 +91,7 @@ window.Charts = (() => {
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = "rgba(164,92,0,.95)";
-      ctx.font = "12px -apple-system, BlinkMacSystemFont, Segoe UI";
+      ctx.font = chartFont(canvas, 12);
       ctx.fillText(label, pad.left + 4, yy - 7);
     }
 
@@ -101,21 +138,22 @@ window.Charts = (() => {
       ctx.stroke();
 
       ctx.fillStyle = "rgba(107,114,128,.95)";
-      ctx.font = "12px -apple-system, BlinkMacSystemFont, Segoe UI";
+      ctx.font = chartFont(canvas, 12);
       ctx.fillText(p.date.slice(0,5), xx - 15, h - 18);
     });
 
     ctx.fillStyle = "#111827";
-    ctx.font = "800 13px -apple-system, BlinkMacSystemFont, Segoe UI";
+    ctx.font = chartFont(canvas, 13, 600);
     ctx.fillText(`${lab.name}: динамика`, pad.left, 21);
   }
 
   function drawDashboardTrendChart(canvas, labs) {
     if (!canvas || !labs?.length) return;
+    rememberChart(canvas, () => drawDashboardTrendChart(canvas, labs));
     const ctx = canvas.getContext("2d");
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    const cssHeight = window.innerWidth <= 820 ? 250 : 320;
+    const cssHeight = rect.height || (window.innerWidth <= 820 ? 250 : 320);
     const series = labs
       .map((lab) => {
         const low = Number(String(lab.low ?? "").replace(",", "."));
@@ -145,8 +183,8 @@ window.Charts = (() => {
       return;
     }
 
-    canvas.width = Math.max(320, rect.width * dpr);
-    canvas.height = cssHeight * dpr;
+    canvas.width = Math.max(1, Math.round((rect.width || 520) * dpr));
+    canvas.height = Math.round(cssHeight * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const w = rect.width || 520;
@@ -222,7 +260,7 @@ window.Charts = (() => {
     const labelHistory = series[0].history;
     ctx.fillStyle = "rgba(107,114,128,.78)";
     ctx.textAlign = "center";
-    ctx.font = `${isCompact ? 11 : 12}px -apple-system, BlinkMacSystemFont, Segoe UI`;
+    ctx.font = chartFont(canvas, 12);
     labelHistory.forEach((point, i) => {
       if (labelHistory.length > 5 && i % 2 === 1 && i !== labelHistory.length - 1) return;
       const xx = pad.left + plotW * i / Math.max(1, labelHistory.length - 1);
@@ -231,13 +269,13 @@ window.Charts = (() => {
     ctx.textAlign = "left";
 
     ctx.fillStyle = "rgba(107,114,128,.9)";
-    ctx.font = "12px -apple-system, BlinkMacSystemFont, Segoe UI";
+    ctx.font = chartFont(canvas, 12);
     attachDashboardTooltip(canvas, points);
   }
 
   function drawRangeLabel(ctx, text, x, y, color, background) {
     ctx.save();
-    ctx.font = "700 11px -apple-system, BlinkMacSystemFont, Segoe UI";
+    ctx.font = chartFont(ctx.canvas, 12, 600);
     const width = ctx.measureText(text).width + 16;
     const height = 22;
     const radius = 11;

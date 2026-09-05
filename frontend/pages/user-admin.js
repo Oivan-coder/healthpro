@@ -25,7 +25,7 @@ window.Pages["admin-users"] = async function renderAdminUsers() {
         <h2>Создать пользователя</h2>
         <p class="muted">Учётная запись будет сохранена в MySQL. Временный пароль в открытом виде не хранится.</p>
 
-        <form id="createDemoUserForm">
+        <form id="createDemoUserForm" class="form-stack">
           <label>ФИО
             <input id="newUserDisplayName" value="Иванов Иван Иванович" required />
           </label>
@@ -68,7 +68,7 @@ window.Pages["admin-users"] = async function renderAdminUsers() {
         </div>
         <span class="status info">${users.length} учётных записей</span>
       </div>
-      <div class="table-wrap">
+      <div class="table-wrap user-table-wrap" tabindex="0" role="region" aria-label="Пользователи, таблицу можно прокручивать по горизонтали">
         <table>
           <thead>
             <tr>
