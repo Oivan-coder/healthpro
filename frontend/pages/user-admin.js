@@ -18,6 +18,12 @@ window.Pages["admin-users"] = async function renderAdminUsers() {
     return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString("ru-RU");
   };
 
+  const roleLabel = (role) => {
+    if (role === "admin") return "Администратор";
+    if (role === "tester") return "Тестировщик";
+    return "Пользователь";
+  };
+
   root.innerHTML = `
     <section class="grid-2">
       <div class="card">
@@ -38,13 +44,14 @@ window.Pages["admin-users"] = async function renderAdminUsers() {
           <label>Роль
             <select id="newUserRole">
               <option value="user">Пользователь</option>
+              <option value="tester">Тестировщик — кабинет + ввод результатов</option>
               <option value="admin">Администратор</option>
             </select>
           </label>
           <label>Тестовый профиль пациента
             <input id="newUserPatientId" value="p_001" />
           </label>
-          <p class="muted">Для обычного пользователя укажите синтетический patient_id. Для администратора поле можно оставить пустым.</p>
+          <p class="muted">Пользователь и тестировщик работают с привязанным синтетическим patient_id. Тестировщик видит весь обычный кабинет и дополнительный раздел «Ввод результатов». Для администратора поле можно оставить пустым.</p>
           <button class="btn primary" type="submit">Создать учётную запись</button>
         </form>
       </div>
@@ -54,6 +61,7 @@ window.Pages["admin-users"] = async function renderAdminUsers() {
         <h2>Как работает демо-контур</h2>
         <div class="list">
           <div class="row-card"><div class="icon-bubble ok">✓</div><div><b>Серверный вход</b><div class="muted">Сессия создаётся backend и хранится в защищённой cookie.</div></div></div>
+          <div class="row-card"><div class="icon-bubble ok">✓</div><div><b>Тестировщик</b><div class="muted">Получает обычный кабинет пациента и право добавлять результаты только в свой тестовый профиль.</div></div></div>
           <div class="row-card"><div class="icon-bubble ok">✓</div><div><b>Временный пароль</b><div class="muted">При первом входе система потребует установить новый.</div></div></div>
           <div class="row-card"><div class="icon-bubble ok">✓</div><div><b>Синтетические данные</b><div class="muted">Учётки и данные тестовые, механизм хранения настоящий.</div></div></div>
         </div>
@@ -86,7 +94,7 @@ window.Pages["admin-users"] = async function renderAdminUsers() {
               <tr>
                 <td><b>${escapeHtml(user.displayName)}</b>${user.mustChangePassword ? `<br><small class="muted">ожидается смена пароля</small>` : ""}</td>
                 <td>${escapeHtml(user.login)}</td>
-                <td>${user.role === "admin" ? "Администратор" : "Пользователь"}</td>
+                <td>${roleLabel(user.role)}</td>
                 <td><span class="status ${user.status === "active" ? "ok" : "warn"}">${user.status === "active" ? "Активен" : "Заблокирован"}</span></td>
                 <td>${escapeHtml(user.patientId || "—")}</td>
                 <td>${formatDate(user.lastLoginAt)}</td>
@@ -126,6 +134,7 @@ window.Pages["admin-users"] = async function renderAdminUsers() {
       const messages = {
         login_already_exists: "Такой логин уже существует",
         password_too_short: "Пароль должен быть не короче 10 символов",
+        patient_id_required: "Для пользователя или тестировщика нужен тестовый профиль",
         invalid_patient_id: "Указан неизвестный тестовый профиль"
       };
       UI.toast(messages[error.code] || "Не удалось создать пользователя");
