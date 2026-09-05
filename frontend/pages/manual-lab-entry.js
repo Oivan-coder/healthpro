@@ -1,4 +1,11 @@
 window.Pages = window.Pages || {};
+
+const manualLabEntryNav = document.querySelector('[data-route="manual-lab-entry"]');
+if (manualLabEntryNav) {
+  manualLabEntryNav.removeAttribute("data-admin-only");
+  manualLabEntryNav.setAttribute("data-lab-entry-only", "");
+}
+
 window.ManualLabEntryState = window.ManualLabEntryState || {
   patientId: "",
   reportDate: "",
@@ -13,6 +20,10 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
   const state = window.ManualLabEntryState;
   const currentUser = window.App?.user?.() || null;
   const isTester = currentUser?.role === "tester";
+  const routeCaption = document.getElementById("routeCaption");
+  const routeTitle = document.getElementById("routeTitle");
+  if (routeCaption) routeCaption.textContent = "Результаты";
+  if (routeTitle) routeTitle.textContent = "Добавление лабораторных результатов";
 
   const escapeHtml = (value) => String(value ?? "")
     .replaceAll("&", "&amp;")
