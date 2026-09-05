@@ -51,7 +51,8 @@ window.App = (() => {
       assistant: Pages.assistant,
       integration: Pages.integration,
       profile: Pages.profile,
-      "admin-users": Pages["admin-users"]
+      "admin-users": Pages["admin-users"],
+      "manual-lab-entry": Pages["manual-lab-entry"]
     };
   }
 
@@ -60,7 +61,7 @@ window.App = (() => {
   }
 
   function adminRoutes() {
-    return new Set(["admin-users", "integration"]);
+    return new Set(["admin-users", "manual-lab-entry", "integration"]);
   }
 
   function defaultRoute() {
