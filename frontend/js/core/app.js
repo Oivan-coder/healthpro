@@ -60,6 +60,10 @@ window.App = (() => {
     return new Set(["dashboard", "labs", "lab-history", "appointments", "visits", "reports", "assistant", "profile"]);
   }
 
+  function testerRoutes() {
+    return new Set([...userRoutes(), "manual-lab-entry"]);
+  }
+
   function adminRoutes() {
     return new Set(["admin-users", "manual-lab-entry", "integration"]);
   }
@@ -70,7 +74,9 @@ window.App = (() => {
 
   function routeAllowed(route) {
     if (!currentUser) return false;
-    return currentUser.role === "admin" ? adminRoutes().has(route) : userRoutes().has(route);
+    if (currentUser.role === "admin") return adminRoutes().has(route);
+    if (currentUser.role === "tester") return testerRoutes().has(route);
+    return userRoutes().has(route);
   }
 
   function routeFromHash() {
@@ -109,7 +115,7 @@ window.App = (() => {
     document.body.classList.toggle("is-app", !isLogin);
     document.getElementById("loginView").classList.toggle("hidden", !isLogin);
     document.getElementById("appView").classList.toggle("hidden", isLogin);
-    const showBottomNav = !isLogin && currentUser?.role === "user";
+    const showBottomNav = !isLogin && currentUser && currentUser.role !== "admin";
     document.getElementById("bottomNav").style.display = showBottomNav ? "" : "none";
     document.body.classList.toggle("has-bottom-nav", showBottomNav);
     setSidebarOpen(false);
@@ -118,8 +124,10 @@ window.App = (() => {
 
   function applyRoleNavigation() {
     const isAdmin = currentUser?.role === "admin";
+    const canEnterLabs = isAdmin || currentUser?.role === "tester";
     document.querySelectorAll("[data-admin-only]").forEach((element) => { element.hidden = !isAdmin; });
     document.querySelectorAll("[data-user-only]").forEach((element) => { element.hidden = isAdmin; });
+    document.querySelectorAll("[data-lab-entry-only]").forEach((element) => { element.hidden = !canEnterLabs; });
     document.getElementById("bottomNav").style.display = isAdmin ? "none" : "";
   }
 
