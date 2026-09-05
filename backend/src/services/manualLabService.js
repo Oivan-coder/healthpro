@@ -186,10 +186,17 @@ async function listServices() {
   return { services: await repository.listServices() };
 }
 
+async function assertManualPatientAccess(user, patientId) {
+  if (user.role === "tester" && clean(user.patientId) !== clean(patientId)) {
+    throw httpError("forbidden", 403);
+  }
+  const available = await repository.isPatientAccessible(user.organizationId, patientId);
+  if (!available) throw httpError("patient_not_available", 404);
+}
+
 async function listServiceTests(adminUser, serviceId, patientId) {
   if (!patientId) throw httpError("patient_id_required");
-  const available = await repository.isPatientAccessible(adminUser.organizationId, patientId);
-  if (!available) throw httpError("patient_not_available", 404);
+  await assertManualPatientAccess(adminUser, patientId);
   const patient = await repository.getPatient(patientId);
   const tests = await repository.listServiceTests(serviceId);
   if (!tests.length) throw httpError("lab_service_not_found", 404);
@@ -231,8 +238,7 @@ async function createManualReport(adminUser, payload = {}) {
   }
   if (payload.observations.length > 100) throw httpError("too_many_observations");
 
-  const available = await repository.isPatientAccessible(adminUser.organizationId, patientId);
-  if (!available) throw httpError("patient_not_available", 404);
+  await assertManualPatientAccess(adminUser, patientId);
   const patient = await repository.getPatient(patientId);
   const tests = await repository.listServiceTests(serviceId);
   if (!tests.length) throw httpError("lab_service_not_found", 404);
