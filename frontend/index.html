@@ -101,6 +101,7 @@
         <a href="#assistant" data-route="assistant" data-route-action="assistant" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H3l2-5a8.5 8.5 0 1 1 16-3.5Z"/><path d="M8 11h8M8 15h4"/></svg>Помощник</a>
         <a href="#profile" data-route="profile" data-route-action="profile" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>Профиль</a>
         <a href="#admin-users" data-route="admin-users" data-route-action="admin-users" data-admin-only class="nav-link" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M17 13a5 5 0 0 1 4 5v3"/></svg>Пользователи</a>
+        <a href="#manual-lab-entry" data-route="manual-lab-entry" data-route-action="manual-lab-entry" data-admin-only class="nav-link" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6L5 18a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18l-5-9V3M8 15h8"/><path d="M12 12v6M9 15h6"/></svg>Ввод результатов</a>
         <a href="#integration" data-route="integration" data-route-action="integration" data-admin-only class="nav-link nav-link-tech" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16l-4-4M20 17H4l4 4M20 7l-4 4M4 17l4-4"/></svg>Интеграция</a>
       </nav>
 
@@ -202,6 +203,20 @@
   <script src="./pages/assistant.js?v=closed-demo-ui-2"></script>
   <script src="./pages/admin.js?v=closed-demo-ui-2"></script>
   <script src="./pages/user-admin.js?v=closed-demo-ui-2"></script>
+  <script src="./pages/manual-lab-entry.js?v=manual-lab-entry-1"></script>
+  <script>
+    (() => {
+      const originalSetRouteTitle = UI.setRouteTitle;
+      UI.setRouteTitle = (route) => {
+        if (route === "manual-lab-entry") {
+          document.getElementById("routeCaption").textContent = "Лаборатория";
+          document.getElementById("routeTitle").textContent = "Ручной ввод результатов";
+          return;
+        }
+        originalSetRouteTitle(route);
+      };
+    })();
+  </script>
   <script src="./js/core/app.js?v=closed-demo-ui-2"></script>
   <script>
     (() => {
