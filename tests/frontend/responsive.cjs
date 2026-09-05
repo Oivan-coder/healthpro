@@ -1,7 +1,7 @@
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {JSDOM}=require('jsdom'),postcss=require('postcss');
 const dir=path.resolve(__dirname, '../../frontend');
-const styles=['theme.css','layout.css','mobile.css'].map(f=>postcss.parse(fs.readFileSync(path.join(dir,'css',f),'utf8')));
+const styles=['theme.css','layout.css','mobile.css','responsive-fixes.css'].map(f=>postcss.parse(fs.readFileSync(path.join(dir,'css',f),'utf8')));
 function matches(query,width,height) {
  if(/prefers-reduced-motion|hover/.test(query))return false;
  return [...query.matchAll(/\((min|max)-(width|height):\s*(\d+)px\)/g)].every(([,bound,axis,value])=>bound==='min'?(axis==='width'?width:height)>=Number(value):(axis==='width'?width:height)<=Number(value));
@@ -9,7 +9,7 @@ function matches(query,width,height) {
 function cssAt(width,height) {
  return styles.map(style=>{const tree=style.clone();tree.walkAtRules('media',rule=>{if(matches(rule.params,width,height))rule.replaceWith(...rule.nodes);else rule.remove();});return tree.toString();}).join('\n');
 }
-for (const width of [320,390,768,820,900,1024,1180,1280,1440]) {
+for (const width of [320,390,768,820,900,1024,1180,1280,1440,1536,1728,1920]) {
  const dom=new JSDOM(fs.readFileSync(path.join(dir,'index.html'),'utf8'),{url:'https://healthpro.test/'});
  const w=dom.window,d=w.document,style=d.createElement('style');style.textContent=cssAt(width,720);d.head.append(style);
  const get=s=>w.getComputedStyle(d.querySelector(s));

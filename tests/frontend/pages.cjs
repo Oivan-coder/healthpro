@@ -41,6 +41,7 @@ const holder=d.createElement('div'),canvas=d.createElement('canvas');holder.appe
 Object.defineProperty(w,'devicePixelRatio',{value:1,configurable:true});
 const originalData=JSON.stringify(labs);
 w.Charts.drawLabChart(canvas,labs[0]);assert.equal(canvas.width,240);assert.equal(canvas.height,280);assert(contexts.get(canvas).fonts.every(font=>font.includes('Inter Variable')));
+w.Charts.drawLabChart(canvas,{...labs[0],low:null,high:null});assert.equal(canvas.width,240);assert.equal(canvas.height,280);
 w.Charts.drawDashboardTrendChart(canvas,labs);assert.equal(canvas.width,240);assert.equal(canvas.height,280);
 width=600;height=320;Object.defineProperty(w,'devicePixelRatio',{value:2,configurable:true});resizeCallback();await new Promise(r=>setTimeout(r,50));assert.equal(canvas.width,1200);assert.equal(canvas.height,640);assert.equal(JSON.stringify(labs),originalData);
 canvas.remove();resizeCallback();await new Promise(r=>setTimeout(r,30));assert(!observed.has(canvas));

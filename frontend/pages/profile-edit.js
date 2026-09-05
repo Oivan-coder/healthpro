@@ -5,7 +5,7 @@ window.Pages.profile = async function renderEditableProfile() {
   const p = data.patient;
   const initials = String(p.name || "Пациент").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase();
   const sexText = p.sex === "female" ? "женский" : p.sex === "male" ? "мужской" : "не указан";
-  const value = (item) => item === null || item === undefined || item === "null" ? "—" : String(item);
+  const value = Cabinet.display;
   const escapeHtml = (item) => String(item ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -14,31 +14,37 @@ window.Pages.profile = async function renderEditableProfile() {
     .replaceAll("'", "&#039;");
   const birthDateInput = (() => {
     const match = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(p.birthDate || ""));
-    return match ? `${match[3]}-${match[2]}-${match[1]}` : "";
+    return match ? `${match[3]}-${match[2]}-${match[1]}` : /^\d{4}-\d{2}-\d{2}$/.test(String(p.birthDate || "")) ? p.birthDate : "";
   })();
 
-  UI.root().innerHTML = `
-    <section class="profile-layout">
-      <div class="profile-card card">
-        <div class="profile-hero-card">
+  const birth = birthDateInput ? new Date(birthDateInput + "T00:00:00") : null;
+  const now = new Date();
+  const age = birth && !Number.isNaN(birth.getTime()) ? now.getFullYear() - birth.getFullYear() - Number(now.getMonth() < birth.getMonth() || now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate()) : null;
+  const isTester = App.user()?.role === "tester";
+  UI.root().innerHTML = `<div class="cabinet-page profile-page">
+    <section class="profile-columns">
+      <div class="workspace-section">
+        <div class="profile-identity">
           <div class="profile-avatar-large">${escapeHtml(initials)}</div>
           <div>
-            <div class="label">Пациент</div>
+            <div class="eyebrow">Пациент</div>
             <h2>${escapeHtml(p.name)}</h2>
-            <p class="muted">${Number(p.age || 0)} лет • ${sexText} • ${escapeHtml(value(p.clinic))}</p>
+            <p class="muted">${age === null || age < 0 ? "Возраст не указан" : `${age} ${Cabinet.plural(age,"год","года","лет")}`} • ${sexText} • ${escapeHtml(value(p.clinic))}</p>
           </div>
-          <button class="btn secondary" id="profileEditBtn" type="button">Редактировать</button>
+          <button class="btn primary" id="profileEditBtn" type="button">Редактировать</button>
         </div>
 
-        <div class="profile-info-grid" id="profileInfoView">
-          <div class="profile-info-item"><span>Дата рождения</span><b>${escapeHtml(value(p.birthDate))}</b></div>
-          <div class="profile-info-item"><span>Телефон</span><b>${escapeHtml(value(p.phone))}</b></div>
-          <div class="profile-info-item"><span>Карта пациента</span><b>${escapeHtml(value(p.misCard))}</b></div>
-          <div class="profile-info-item"><span>Полис</span><b>${escapeHtml(value(p.policy))}</b></div>
+        <div class="patient-fields" id="profileInfoView">
+          <div class="patient-field"><span>Дата рождения</span><b>${escapeHtml(value(p.birthDate))}</b></div>
+          <div class="patient-field"><span>Телефон</span><b>${escapeHtml(value(p.phone))}</b></div>
+          <div class="patient-field"><span>Карта пациента</span><b>${escapeHtml(value(p.misCard))}</b></div>
+          <div class="patient-field"><span>Полис</span><b>${escapeHtml(value(p.policy))}</b></div>
+          <div class="patient-field"><span>Клиника</span><b>${escapeHtml(value(p.clinic))}</b></div>
+          <div class="patient-field"><span>Регион</span><b>${escapeHtml(value(p.region))}</b></div>
         </div>
 
         <form id="profileEditForm" class="form-stack" hidden style="margin-top:18px">
-          <div class="grid-2">
+          <div class="profile-form-grid">
             <label>ФИО
               <input id="profileName" value="${escapeHtml(p.name)}" maxlength="160" required />
             </label>
@@ -64,7 +70,7 @@ window.Pages.profile = async function renderEditableProfile() {
               <input id="profileRegion" value="${escapeHtml(p.region || "")}" maxlength="255" />
             </label>
             <label>Карта пациента
-              <input value="${escapeHtml(p.misCard || "")}" disabled />
+              <input value="${escapeHtml(value(p.misCard))}" readonly aria-readonly="true" />
               <small>Идентификатор карты меняется только через клинику.</small>
             </label>
           </div>
@@ -75,55 +81,26 @@ window.Pages.profile = async function renderEditableProfile() {
           </div>
         </form>
 
-        <div class="profile-note">
-          <div class="icon-bubble ok">✓</div>
-          <div>
-            <b>Карта клиники привязана</b>
-            <p class="muted">По этой карте в кабинет попадают исследования пациента.</p>
-          </div>
-        </div>
       </div>
-
-      <div class="profile-card card">
-        <div class="section-head">
-          <div>
-            <div class="label">Доступ и данные</div>
-            <h2>Что подключено</h2>
-          </div>
-          <span class="status ok">активно</span>
-        </div>
-
-        <div class="profile-status-list">
-          <div class="profile-status-item">
-            <div class="icon-bubble ok">✓</div>
-            <div><b>Лаборатория</b><span>исследования, показатели внимания и динамика доступны</span></div>
-          </div>
-          <div class="profile-status-item">
-            <div class="icon-bubble warn">Демо</div>
-            <div><b>Документы</b><span>раздел предусмотрен, но в закрытом демо временно недоступен</span></div>
-          </div>
-          <div class="profile-status-item">
-            <div class="icon-bubble warn">Демо</div>
-            <div><b>Запись к врачу</b><span>раздел предусмотрен, но в закрытом демо временно недоступен</span></div>
-          </div>
-          <div class="profile-status-item">
-            <div class="icon-bubble ok">✓</div>
-            <div><b>Профиль</b><span>контактные и основные данные можно редактировать самостоятельно</span></div>
-          </div>
-        </div>
-      </div>
+      <aside class="workspace-section access-section">
+        <h2>Доступ и данные</h2>
+        <p class="section-note">Закрытое демо · Синтетические данные</p>
+        <dl class="access-list">
+          <div><dt>Лаборатория</dt><dd>Доступно</dd></div>
+          ${isTester ? '<div><dt>Ввод результатов</dt><dd>Доступно</dd></div>' : ""}
+          <div><dt>Запись к врачу</dt><dd class="demo-nav-badge">Демо</dd></div>
+          <div><dt>Врачи</dt><dd class="demo-nav-badge">Демо</dd></div>
+          <div><dt>Документы</dt><dd class="demo-nav-badge">Демо</dd></div>
+        </dl>
+        <p class="section-note">Карта пациента доступна только для чтения.</p>
+      </aside>
     </section>
 
-    <section class="profile-actions card">
-      <div>
-        <div class="label">Быстрые действия</div>
-        <h2>Управление кабинетом</h2>
-      </div>
-      <div class="profile-action-buttons">
-        <button class="btn primary" data-route-action="labs" data-lab-mode="abnormal">Показатели внимания</button>
-        <button class="btn ghost" id="profileLogoutBtn">Выйти</button>
-      </div>
-    </section>
+    <nav class="quick-links" aria-label="Действия профиля">
+      <button class="btn ghost" data-route-action="labs" data-lab-mode="reports">Мои анализы</button>
+      ${isTester ? '<button class="btn ghost" data-route-action="manual-lab-entry">Ввод результатов</button>' : ""}
+      <button class="btn ghost" id="profileLogoutBtn">Выйти из кабинета</button>
+    </nav></div>
   `;
 
   const editButton = document.getElementById("profileEditBtn");
@@ -135,6 +112,8 @@ window.Pages.profile = async function renderEditableProfile() {
     form.hidden = !editing;
     infoView.hidden = editing;
     editButton.hidden = editing;
+    if (editing) document.getElementById("profileName").focus();
+    else editButton.focus();
   }
 
   editButton.onclick = () => setEditing(true);
@@ -161,6 +140,7 @@ window.Pages.profile = async function renderEditableProfile() {
       await window.App.render();
     } catch (error) {
       const messages = {
+        profile_edit_not_available: "Этот демонстрационный профиль доступен только для чтения. Для редактирования нужен персональный тестовый профиль.",
         invalid_profile_name: "Проверьте ФИО.",
         invalid_birth_date: "Проверьте дату рождения.",
         invalid_profile_sex: "Проверьте пол.",

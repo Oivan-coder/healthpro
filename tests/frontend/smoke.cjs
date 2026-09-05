@@ -5,7 +5,7 @@ const path = require('node:path');
 const postcss = require('postcss');
 const root = path.resolve(__dirname, '../../frontend');
 const tick = () => new Promise(resolve => setImmediate(resolve));
-const routes = ['dashboard','labs','lab-history','appointments','visits','reports','assistant','profile','admin-users','integration'];
+const routes = ['dashboard','labs','lab-history','appointments','visits','reports','assistant','profile','admin-users','integration','manual-lab-entry'];
 let passed = 0;
 function pass(label) { passed++; console.log('PASS', label); }
 (async () => {
@@ -52,7 +52,8 @@ await w.App.navigate('integration');assert.equal(renders.at(-1),'dashboard');
 const labLink=d.querySelector('.nav-link[data-route="labs"]'); const before=renders.length;
 labLink.click(); await tick();assert.equal(renders.length-before,1);assert.equal(renders.at(-1),'labs');
 pass('all patient routes, route guards and click navigation');
-await w.App.logout();assert(d.body.classList.contains('is-login'));assert.equal(w.PatientStorage.getCurrentPatientId(),'');
+w.ManualLabEntryState={owner:'fixture:p_fixture',patientId:'p_fixture',serviceId:'service',entries:[{testId:'x'}]};
+await w.App.logout();assert(d.body.classList.contains('is-login'));assert.equal(w.PatientStorage.getCurrentPatientId(),'');assert.equal(w.ManualLabEntryState.entries.length,0);
 pass('logout clears patient UI session');
 const legal=d.querySelector('[data-legal-modal="privacyModal"]');legal.focus();legal.click();
 assert(d.getElementById('privacyModal').classList.contains('show'));assert(d.getElementById('modalBackdrop').classList.contains('show'));assert(d.getElementById('loginView').hasAttribute('inert'));
@@ -67,6 +68,7 @@ field('currentPasswordInput','fixture-old-secret');field('newPasswordInput','fix
 field('newPasswordConfirmInput','fixture-new-secret');await submit('passwordChangeForm');assert(d.body.classList.contains('is-login'));assert(!d.body.classList.contains('modal-open'));assert.equal(d.getElementById('newPasswordInput').value,'');
 assert.deepEqual(JSON.parse(calls.find(c=>c.endpoint.endsWith('change-password')).options.body),{currentPassword:'fixture-old-secret',newPassword:'fixture-new-secret'});
 pass('password mismatch and successful change return to login; contract unchanged');
+loginUser={...loginUser,role:'tester',mustChangePassword:false,patientId:'p_tester'};field('passwordInput','fixture-only-secret');await submit('loginForm');assert.equal(renders.at(-1),'dashboard');assert.equal(d.querySelector('[data-route="manual-lab-entry"]').hidden,false);await w.App.navigate('manual-lab-entry');assert.equal(renders.at(-1),'manual-lab-entry');await w.App.logout();
 loginUser={...loginUser,role:'admin',mustChangePassword:false,patientId:null};field('passwordInput','fixture-only-secret');await submit('loginForm');assert.equal(renders.at(-1),'admin-users');assert.equal(d.getElementById('bottomNav').style.display,'none');assert([...d.querySelectorAll('[data-user-only]')].every(el=>el.hidden));await w.App.navigate('integration');assert.equal(renders.at(-1),'integration');await w.App.navigate('profile');assert.equal(renders.at(-1),'admin-users');
 pass('admin routes and user isolation');
 compactQuery.matches=true;mediaListeners.forEach(fn=>fn());
@@ -80,7 +82,7 @@ await w.App.navigate('admin-users');
 pass('mobile admin drawer, focus loop, Escape, single touch navigation and desktop resize');
 w.Pages['admin-users']=async()=>{throw Object.assign(new Error('expired'),{status:401});};await w.App.render();assert(d.body.classList.contains('is-login'));assert(d.getElementById('loginError').textContent.includes('Сессия'));
 pass('expired server session returns to login');
-for (const f of ['theme.css','layout.css','mobile.css']) postcss.parse(fs.readFileSync(path.join(root,'css',f),'utf8'),{from:f});
+for (const f of ['theme.css','layout.css','mobile.css','responsive-fixes.css']) postcss.parse(fs.readFileSync(path.join(root,'css',f),'utf8'),{from:f});
 const ids=[...d.querySelectorAll('[id]')].map(e=>e.id);assert.equal(ids.length,new Set(ids).size);
 for(const el of d.querySelectorAll('[src],link[href]')) {const p=el.getAttribute('src')||el.getAttribute('href');if(p.startsWith('./'))assert(fs.existsSync(path.join(root,p.split('?')[0])),'Missing asset '+p);}
 pass('CSS parses; HTML IDs and referenced assets are valid');

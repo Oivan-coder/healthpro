@@ -90,6 +90,16 @@ window.PatientStorage = (() => {
       DashboardState.editingTrends = false;
       DashboardState.trendQuery = "";
     }
+    if (window.ManualLabEntryState) {
+      ManualLabEntryState.owner = "";
+      ManualLabEntryState.patientId = "";
+      ManualLabEntryState.serviceId = "";
+      ManualLabEntryState.serviceQuery = "";
+      ManualLabEntryState.testQuery = "";
+      ManualLabEntryState.tests = [];
+      ManualLabEntryState.entries = [];
+      ManualLabEntryState.lastReport = null;
+    }
   }
 
   return {

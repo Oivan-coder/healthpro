@@ -19,14 +19,18 @@ window.ManualLabEntryState = window.ManualLabEntryState || {
 
 window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
   const root = UI.root();
-  const state = window.ManualLabEntryState;
+  let state = window.ManualLabEntryState;
   const currentUser = window.App?.user?.() || null;
   const isTester = currentUser?.role === "tester";
+  const owner = `${currentUser?.id}:${currentUser?.patientId}`;
+  if (state.owner !== owner) state = window.ManualLabEntryState = {owner,patientId:"",reportDate:"",serviceId:"",serviceQuery:"",testQuery:"",tests:[],entries:[],lastReport:null};
+  let requestVersion = 0;
+  let saving = false;
 
   const routeCaption = document.getElementById("routeCaption");
   const routeTitle = document.getElementById("routeTitle");
   if (routeCaption) routeCaption.textContent = "Результаты";
-  if (routeTitle) routeTitle.textContent = "Добавление лабораторных результатов";
+  if (routeTitle) routeTitle.textContent = "Ввод результатов";
 
   const escapeHtml = (value) => String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -76,20 +80,18 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
   if (state.patientId && !patients.some((patient) => patient.patientId === state.patientId)) state.patientId = "";
   if (state.serviceId && !services.some((service) => service.id === state.serviceId)) state.serviceId = "";
 
-  root.innerHTML = `
-    <section class="card">
+  root.innerHTML = `<div class="cabinet-page manual-page">
+    <section class="workspace-section">
       <div class="section-head">
         <div>
-          <div class="label">Ручной ввод результатов</div>
           <h2>Внести лабораторный результат</h2>
           <p class="muted">Исследование и показатель ищутся по названию или коду. Единицы и референсы подставляются из справочника.</p>
         </div>
-        <span class="status info">${services.length} исследований</span>
       </div>
     </section>
 
     ${state.lastReport ? `
-      <section class="card" style="margin-top:16px">
+      <section class="workspace-section">
         <div class="row-card">
           <div class="icon-bubble ok">✓</div>
           <div>
@@ -100,10 +102,10 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
       </section>
     ` : ""}
 
-    <section class="grid-2" style="margin-top:16px">
-      <div class="card">
-        <div class="label">1. Исследование</div>
-        <h2>${isTester ? "Ваш профиль и дата результата" : "Пациент и дата результата"}</h2>
+    <section class="manual-columns">
+      <div class="workspace-section">
+        <div class="eyebrow">1. Исследование</div>
+        <h2>Исследование и дата</h2>
         <div class="form-stack">
           <label>Пациент
             <select id="manualPatientSelect" ${isTester ? "disabled" : ""}>
@@ -118,25 +120,19 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
           <label>Поиск исследования
             <input id="manualServiceSearch" type="search" value="${escapeHtml(state.serviceQuery)}" placeholder="Например: глюкоза, биохимия, ОАК, код..." autocomplete="off" />
           </label>
-          <label>Исследование
-            <select id="manualServiceSelect"></select>
-          </label>
+          <input type="hidden" id="manualServiceSelect" value="${escapeHtml(state.serviceId)}">
           <small class="muted" id="manualServiceCount"></small>
         </div>
       </div>
 
-      <div class="card">
-        <div class="label">2. Показатель</div>
-        <h2>Найдите показатель и введите значение</h2>
+      <div class="workspace-section">
+        <div class="eyebrow">2. Показатель</div>
+        <h2>Показатель и результат</h2>
         <form id="manualResultForm" class="form-stack">
           <label>Поиск показателя
             <input id="manualTestSearch" type="search" value="${escapeHtml(state.testQuery)}" placeholder="Например: глюкоза, АЛТ, гемоглобин..." autocomplete="off" disabled />
           </label>
-          <label>Показатель
-            <select id="manualTestSelect" disabled>
-              <option value="">Сначала выберите исследование</option>
-            </select>
-          </label>
+          <input type="hidden" id="manualTestSelect">
           <small class="muted" id="manualTestCount"></small>
 
           <div id="manualTestMeta" class="interpretation soft">
@@ -156,17 +152,17 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
       </div>
     </section>
 
-    <section class="card" style="margin-top:16px">
+    <section class="workspace-section">
       <div class="section-head">
         <div>
-          <div class="label">3. Результаты</div>
-          <h2>Перед сохранением</h2>
+          <div class="eyebrow">3. Результаты</div>
+          <h2>Добавленные показатели</h2>
           <p class="muted">В один отчёт попадут только добавленные показатели.</p>
         </div>
         <span class="status ${state.entries.length ? "ok" : "info"}" id="manualEntryCount">${state.entries.length} показателей</span>
       </div>
-      <div class="table-wrap">
-        <table>
+      <div class="compact-table-wrap">
+        <table class="compact-table">
           <thead><tr><th>Показатель</th><th>Результат</th><th>Единица</th><th>Референс</th><th></th></tr></thead>
           <tbody id="manualEntryRows"></tbody>
         </table>
@@ -175,7 +171,7 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
         <button class="btn primary" id="manualSaveBtn" type="button" ${state.entries.length ? "" : "disabled"}>Сохранить результат</button>
         <button class="btn ghost" id="manualClearBtn" type="button" ${state.entries.length ? "" : "disabled"}>Очистить</button>
       </div>
-    </section>
+    </section></div>
   `;
 
   const patientSelect = document.getElementById("manualPatientSelect");
@@ -194,38 +190,28 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
   const saveButton = document.getElementById("manualSaveBtn");
   const clearButton = document.getElementById("manualClearBtn");
 
-  function filteredServices() {
-    const query = normalize(serviceSearch.value);
-    if (!query) return services;
-    return services.filter((service) => normalize(`${service.name} ${service.code || ""} ${service.sourceServiceCode || ""}`).includes(query));
-  }
-
-  function renderServiceOptions() {
-    const filtered = filteredServices();
-    const selectedStillVisible = filtered.some((service) => service.id === state.serviceId);
-    serviceSelect.innerHTML = `<option value="">${filtered.length ? "Выберите исследование" : "Ничего не найдено"}</option>${filtered.map((service) => `<option value="${escapeHtml(service.id)}" ${service.id === state.serviceId ? "selected" : ""}>${escapeHtml(service.name)} · ${Number(service.testCount || 0)} показ.</option>`).join("")}`;
-    if (!selectedStillVisible && state.serviceId) serviceSelect.value = "";
-    serviceCount.textContent = serviceSearch.value.trim() ? `Найдено: ${filtered.length} из ${services.length}` : `Всего исследований: ${services.length}`;
-  }
-
-  function filteredTests() {
-    const query = normalize(testSearch.value);
-    if (!query) return state.tests;
-    return state.tests.filter((test) => normalize(`${test.name} ${test.code || ""} ${test.sourceTestCode || ""} ${test.biomaterial || ""}`).includes(query));
-  }
-
+  const servicePicker = SearchPicker(serviceSearch, serviceSelect, {
+    items: () => services,
+    label: item => `${item.name}${item.code || item.sourceServiceCode ? " · " + (item.code || item.sourceServiceCode) : ""}`,
+    terms: item => `${item.name} ${item.code || ""} ${item.sourceServiceCode || ""}`,
+    hint: serviceCount,
+    onChange: () => {state.serviceQuery = serviceSearch.value;loadTests();}
+  });
+  const testPicker = SearchPicker(testSearch, testSelect, {
+    items: () => state.tests,
+    label: item => `${item.name}${item.code || item.sourceTestCode ? " · " + (item.code || item.sourceTestCode) : ""}`,
+    terms: item => `${item.name} ${item.code || ""} ${item.sourceTestCode || ""} ${item.biomaterial || ""}`,
+    hint: testCount,
+    onChange: item => {state.testQuery = testSearch.value;valueInput.value = "";renderTestMeta();if(item) valueInput.focus();}
+  });
   function renderTestOptions() {
-    const filtered = filteredTests();
-    const currentValue = testSelect.value;
-    testSelect.innerHTML = `<option value="">${filtered.length ? "Выберите показатель" : "Ничего не найдено"}</option>${filtered.map((test) => `<option value="${escapeHtml(test.id)}">${escapeHtml(test.name)}${test.biomaterial ? ` · ${escapeHtml(test.biomaterial)}` : ""}</option>`).join("")}`;
-    if (filtered.some((test) => test.id === currentValue)) testSelect.value = currentValue;
-    testSelect.disabled = !state.tests.length;
     testSearch.disabled = !state.tests.length;
-    testCount.textContent = state.tests.length ? (testSearch.value.trim() ? `Найдено: ${filtered.length} из ${state.tests.length}` : `Показателей в исследовании: ${state.tests.length}`) : "";
+    testPicker.refresh();
+    testCount.textContent = state.tests.length ? `В выбранном исследовании: ${state.tests.length} показателей` : "В исследовании нет доступных показателей";
   }
 
   function currentTest() {
-    return state.tests.find((test) => test.id === testSelect.value) || null;
+    return state.tests.find((test) => String(test.id) === testSelect.value) || null;
   }
 
   function selectedReference(test) {
@@ -235,11 +221,12 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
   }
 
   function lockHeaderFields() {
-    const locked = state.entries.length > 0;
+    const locked = state.entries.length > 0 || saving;
     patientSelect.disabled = locked || isTester;
     reportDateInput.disabled = locked;
     serviceSearch.disabled = locked;
     serviceSelect.disabled = locked;
+    if (locked) servicePicker.close();
   }
 
   function renderEntries() {
@@ -295,48 +282,39 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
   }
 
   async function loadTests() {
+    const version = ++requestVersion;
     state.patientId = patientSelect.value || (isTester ? currentUser?.patientId || "" : "");
     state.reportDate = reportDateInput.value;
     state.serviceId = serviceSelect.value;
     state.testQuery = "";
-    testSearch.value = "";
+    testPicker.set(null);
     state.tests = [];
-    testSelect.innerHTML = `<option value="">Загрузка…</option>`;
+    testCount.textContent = "Загрузка показателей…";
     testSelect.disabled = true;
     testSearch.disabled = true;
     valueInput.disabled = true;
     addButton.disabled = true;
-    testCount.textContent = "";
     renderTestMeta();
 
     if (!state.patientId || !state.serviceId) {
-      testSelect.innerHTML = `<option value="">Сначала выберите исследование</option>`;
+      testCount.textContent = "Сначала выберите исследование и пациента";
       return;
     }
 
     try {
       const result = await manualRequest(`/admin/lab-entry/services/${encodeURIComponent(state.serviceId)}/tests?patientId=${encodeURIComponent(state.patientId)}`);
+      if (version !== requestVersion || !testSearch.isConnected || window.ManualLabEntryState !== state) return;
       state.tests = result?.tests || [];
       renderTestOptions();
     } catch (error) {
-      testSelect.innerHTML = `<option value="">Не удалось загрузить показатели</option>`;
+      if (version !== requestVersion || !testSearch.isConnected) return;
+      testCount.textContent = "Не удалось загрузить показатели. Выберите исследование повторно.";
       UI.toast("Не удалось загрузить показатели исследования");
     }
   }
 
-  serviceSearch.oninput = () => {
-    state.serviceQuery = serviceSearch.value;
-    renderServiceOptions();
-  };
-  serviceSelect.onchange = loadTests;
   patientSelect.onchange = loadTests;
-  reportDateInput.onchange = () => { state.reportDate = reportDateInput.value; };
-  testSearch.oninput = () => {
-    state.testQuery = testSearch.value;
-    renderTestOptions();
-    renderTestMeta();
-  };
-  testSelect.onchange = renderTestMeta;
+  reportDateInput.onchange = () => {state.reportDate = reportDateInput.value;};
   referenceSelect.onchange = () => {
     const test = currentTest();
     const reference = selectedReference(test);
@@ -362,9 +340,10 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
       referenceLabel: reference?.label || test.referenceLabel || "Референс не задан"
     });
     valueInput.value = "";
-    testSelect.value = "";
+    testPicker.set(null);
     renderTestMeta();
     renderEntries();
+    testSearch.focus();
   };
 
   clearButton.onclick = () => {
@@ -374,7 +353,11 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
   };
 
   saveButton.onclick = async () => {
-    if (!state.entries.length) return;
+    if (!state.entries.length || saving) return;
+    saving = true;
+    lockHeaderFields();
+    addButton.disabled = true;
+    clearButton.disabled = true;
     saveButton.disabled = true;
     try {
       const result = await manualRequest("/admin/lab-entry/reports", {
@@ -386,6 +369,7 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
           observations: state.entries.map((entry) => ({ testId: entry.testId, value: entry.value, referenceId: entry.referenceId }))
         })
       });
+      if (window.ManualLabEntryState !== state) return;
       state.lastReport = result.report;
       state.entries = [];
       state.tests = [];
@@ -405,10 +389,13 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
       };
       UI.toast(messages[error.code] || "Не удалось сохранить результат");
       saveButton.disabled = false;
+    } finally {
+      saving = false;
+      if (saveButton.isConnected) {renderEntries();renderTestMeta();}
     }
   };
 
-  renderServiceOptions();
+  servicePicker.set(services.find(service => String(service.id) === String(state.serviceId)) || null);
   renderEntries();
   if (state.patientId && state.serviceId) await loadTests();
 };

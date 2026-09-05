@@ -43,6 +43,11 @@ window.Charts = (() => {
 
   function drawLabChart(canvas, lab) {
     if (!canvas || !lab) return;
+    // Qualitative values and missing references must not become zero/NaN points.
+    const number = value => value == null || String(value).trim() === "" ? null : Number.isFinite(Number(String(value).replace(",", "."))) ? Number(String(value).replace(",", ".")) : null;
+    const history = (lab.history || []).filter(point => number(point.value) !== null).map(point => ({...point, value:number(point.value)}));
+    if (!history.length) return;
+    lab = {...lab, history};
     rememberChart(canvas, () => drawLabChart(canvas, lab));
     const ctx = canvas.getContext("2d");
     const rect = canvas.getBoundingClientRect();
@@ -58,18 +63,22 @@ window.Charts = (() => {
     ctx.clearRect(0, 0, w, h);
 
     const pad = { left: 58, right: 30, top: 30, bottom: 50 };
-    const values = lab.history.map(x => x.value);
-    const min = Math.min(...values, lab.low) * .90;
-    const max = Math.max(...values, lab.high) * 1.10;
+    const low = number(lab.low), high = number(lab.high);
+    const values = [...lab.history.map(x => x.value), ...[low, high].filter(value => value !== null)];
+    const floor = Math.min(...values), ceiling = Math.max(...values);
+    const margin = Math.max((ceiling - floor) * .15, Math.abs(ceiling) * .05, .1);
+    const min = floor - margin, max = ceiling + margin;
     const plotW = w - pad.left - pad.right;
     const plotH = h - pad.top - pad.bottom;
 
     const x = i => pad.left + plotW * i / Math.max(1, lab.history.length - 1);
     const y = v => pad.top + plotH - ((v - min) / Math.max(.001, max - min)) * plotH;
 
-    const yLow = y(lab.low), yHigh = y(lab.high);
-    ctx.fillStyle = "rgba(52,199,89,.12)";
-    ctx.fillRect(pad.left, Math.min(yLow, yHigh), plotW, Math.abs(yLow - yHigh));
+    if (low !== null && high !== null && high > low) {
+      const yLow = y(low), yHigh = y(high);
+      ctx.fillStyle = "rgba(36,124,120,.08)";
+      ctx.fillRect(pad.left, Math.min(yLow, yHigh), plotW, Math.abs(yLow - yHigh));
+    }
 
     ctx.strokeStyle = "rgba(17,24,39,.08)";
     ctx.lineWidth = 1;
@@ -95,8 +104,8 @@ window.Charts = (() => {
       ctx.fillText(label, pad.left + 4, yy - 7);
     }
 
-    refLine(lab.low, "нижняя граница");
-    refLine(lab.high, "верхняя граница");
+    if (low !== null) refLine(low, "нижняя граница");
+    if (high !== null) refLine(high, "верхняя граница");
 
     const gradient = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
     gradient.addColorStop(0, "rgba(0,122,255,.22)");
@@ -114,7 +123,7 @@ window.Charts = (() => {
     ctx.fillStyle = gradient;
     ctx.fill();
 
-    const stroke = lab.flag === "normal" ? "#34c759" : "#ff9500";
+    const stroke = "#247c78";
     ctx.beginPath();
     lab.history.forEach((p, i) => {
       const xx = x(i), yy = y(p.value);
@@ -139,12 +148,16 @@ window.Charts = (() => {
 
       ctx.fillStyle = "rgba(107,114,128,.95)";
       ctx.font = chartFont(canvas, 12);
-      ctx.fillText(p.date.slice(0,5), xx - 15, h - 18);
+      const labelStep = Math.max(1, Math.ceil(lab.history.length / Math.max(2, Math.floor(plotW / 70))));
+      if (i % labelStep === 0 || i === lab.history.length - 1) ctx.fillText(String(p.date || "").slice(0,5), xx - 15, h - 18);
     });
 
     ctx.fillStyle = "#111827";
     ctx.font = chartFont(canvas, 13, 600);
-    ctx.fillText(`${lab.name}: динамика`, pad.left, 21);
+    ctx.fillText("Динамика", pad.left, 21);
+    ctx.font = chartFont(canvas, 12);
+    ctx.fillText(String(Number(ceiling.toPrecision(4))), 4, pad.top + 10);
+    ctx.fillText(String(Number(floor.toPrecision(4))), 4, h - pad.bottom);
   }
 
   function drawDashboardTrendChart(canvas, labs) {
