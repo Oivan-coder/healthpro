@@ -1,4 +1,6 @@
 const express = require("../utils/expressAdapter");
+const authRoutes = require("./authRoutes");
+const adminUserRoutes = require("./adminUserRoutes");
 const patientRoutes = require("./patientRoutes");
 const labRoutes = require("./labRoutes");
 const appointmentRoutes = require("./appointmentRoutes");
@@ -6,6 +8,7 @@ const reportRoutes = require("./reportRoutes");
 const integrationRoutes = require("./integrationRoutes");
 const assistantRoutes = require("./assistantRoutes");
 const auditRoutes = require("./auditRoutes");
+const { requireAuth } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -18,6 +21,9 @@ router.get("/health", (req, res) => {
   });
 });
 
+router.use(authRoutes);
+router.use(requireAuth);
+router.use(adminUserRoutes);
 router.use(patientRoutes);
 router.use(labRoutes);
 router.use(appointmentRoutes);
