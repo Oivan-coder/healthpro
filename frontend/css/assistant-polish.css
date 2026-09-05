@@ -1,0 +1,392 @@
+/* Assistant refresh: one clear task — ask a question. Secondary context stays available without dominating the screen. */
+
+.assistant-page {
+  gap: 18px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.assistant-hero {
+  padding: 0 2px 8px;
+  align-items: center;
+}
+
+.assistant-hero h2 {
+  font-size: clamp(24px, 2.4vw, 32px);
+  letter-spacing: -.025em;
+}
+
+.assistant-hero p {
+  max-width: 620px;
+  font-size: 15px;
+}
+
+.assistant-safe-pill {
+  box-shadow: none;
+  background: #f5faf7;
+  font-weight: 600;
+}
+
+.assistant-layout {
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 20px;
+}
+
+.assistant-chat-card {
+  height: min(690px, calc(100dvh - 230px));
+  min-height: 520px;
+  padding: 18px;
+  border-radius: 22px;
+  border-color: #e2e9ec;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(36,64,84,.055);
+  backdrop-filter: none;
+}
+
+.assistant-chat-head {
+  margin-bottom: 8px;
+  align-items: center;
+}
+
+.assistant-chat-head .label {
+  display: none;
+}
+
+.assistant-chat-head h3 {
+  margin: 0;
+  font-size: 15px;
+  color: #5e6c7e;
+  font-weight: 500;
+}
+
+.assistant-chat-head #assistantClear {
+  min-height: 34px;
+  padding: 6px 9px;
+  color: #73808d;
+}
+
+.assistant-messages {
+  gap: 10px;
+  padding: 8px 2px 14px;
+}
+
+/* The long welcome duplicated the page title and pushed the useful controls below the fold. */
+.assistant-welcome {
+  display: none;
+}
+
+.assistant-pre-summary {
+  max-width: 100%;
+  padding: 14px 16px;
+  border: 1px solid #e8e4d8;
+  border-radius: 16px;
+  background: #fffdf8;
+  box-shadow: none;
+}
+
+.assistant-pre-summary .assistant-message-label {
+  margin-bottom: 7px;
+  color: #6c7581;
+  font-size: 11px;
+  letter-spacing: .04em;
+}
+
+.assistant-pre-summary .assistant-summary-lines {
+  gap: 4px;
+}
+
+.assistant-pre-summary .assistant-summary-lines p {
+  margin: 0;
+  color: #2d3748;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.assistant-pre-summary .assistant-summary-lines p:nth-child(n+4) {
+  display: none;
+}
+
+.assistant-context-card {
+  padding: 12px 14px;
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.assistant-message:not(.assistant-pre-summary):not(.assistant-welcome) {
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: none;
+  max-width: min(92%, 720px);
+}
+
+.assistant-message-label {
+  margin-bottom: 5px;
+  letter-spacing: .04em;
+}
+
+.assistant-provider-note {
+  margin-bottom: 5px;
+  font-weight: 400;
+  opacity: .78;
+}
+
+.assistant-quick {
+  flex-wrap: nowrap;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 8px 0 3px;
+  margin: 0;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.assistant-quick::-webkit-scrollbar {
+  display: none;
+}
+
+.assistant-prompt-card {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #f7faf9;
+  color: #315360;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.assistant-form {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px;
+  border-radius: 16px;
+  border-color: #dce5e9;
+  background: #fbfcfc;
+  box-shadow: none;
+}
+
+.assistant-form input {
+  min-height: 46px;
+  font-size: 15px;
+}
+
+.assistant-form > .btn.primary {
+  min-height: 42px;
+  border-radius: 12px;
+  padding-inline: 16px;
+}
+
+.assistant-add-menu summary {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f4f7f8;
+}
+
+.assistant-side {
+  top: 16px;
+  gap: 10px;
+}
+
+.assistant-side-card {
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid #e2e9ec;
+  background: #fff;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.assistant-picker-button {
+  border-radius: 12px !important;
+}
+
+.assistant-patient-grid {
+  gap: 8px !important;
+}
+
+.assistant-privacy {
+  background: #f8fbfa;
+}
+
+@media (max-width: 900px) {
+  .assistant-page {
+    gap: 14px;
+  }
+
+  .assistant-hero {
+    grid-template-columns: minmax(0,1fr);
+    gap: 8px;
+    padding-bottom: 2px;
+  }
+
+  .assistant-hero h2 {
+    font-size: 24px;
+  }
+
+  .assistant-hero p {
+    font-size: 14px;
+  }
+
+  .assistant-safe-wrap {
+    display: none;
+  }
+
+  .assistant-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Put the useful context selector before the conversation on mobile. */
+  .assistant-side {
+    order: -1;
+    position: static;
+    display: block;
+  }
+
+  .assistant-side > .assistant-side-card:not(.assistant-picker-card) {
+    display: none;
+  }
+
+  .assistant-picker-card {
+    padding: 12px 14px;
+  }
+
+  .assistant-side-head .label {
+    font-size: 11px;
+  }
+
+  .assistant-side-head p {
+    display: none;
+  }
+
+  .assistant-picker-shell {
+    margin-top: 8px;
+  }
+
+  .assistant-selected-note,
+  .assistant-reset-context {
+    margin-top: 7px !important;
+  }
+
+  .assistant-chat-card {
+    height: auto;
+    min-height: 0;
+    padding: 14px;
+    border-radius: 18px;
+    overflow: visible;
+  }
+
+  .assistant-chat-head {
+    margin-bottom: 4px;
+  }
+
+  .assistant-chat-head h3 {
+    font-size: 13px;
+  }
+
+  /* Let the page scroll naturally. Nested scrolling was awkward on phones. */
+  .assistant-messages {
+    flex: none;
+    max-height: none;
+    overflow: visible;
+    padding: 6px 0 10px;
+  }
+
+  .assistant-pre-summary {
+    padding: 13px 14px;
+  }
+
+  .assistant-pre-summary .assistant-summary-lines p {
+    font-size: 13px;
+  }
+
+  .assistant-pre-summary .assistant-summary-lines p:nth-child(n+3) {
+    display: none;
+  }
+
+  .assistant-context-card {
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .assistant-mini-trend {
+    width: 100%;
+    min-width: 0;
+    justify-items: start;
+  }
+
+  .assistant-message:not(.assistant-pre-summary):not(.assistant-welcome) {
+    max-width: 94%;
+  }
+
+  .assistant-quick {
+    margin: 0 -14px;
+    padding: 8px 14px 5px;
+  }
+
+  .assistant-form {
+    position: sticky;
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    z-index: 12;
+    grid-template-columns: 38px minmax(0,1fr) 46px;
+    margin: 5px -2px 0;
+    padding: 6px;
+    background: rgba(255,255,255,.96);
+    box-shadow: 0 8px 24px rgba(36,64,84,.12);
+    backdrop-filter: blur(16px);
+  }
+
+  .assistant-form input {
+    min-width: 0;
+    padding-inline: 5px;
+    font-size: 16px;
+  }
+
+  .assistant-form > .btn.primary {
+    width: 46px;
+    min-width: 46px;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .assistant-form > .btn.primary::after {
+    content: "→";
+    font-size: 22px;
+    line-height: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .assistant-page {
+    gap: 12px;
+  }
+
+  .assistant-hero h2 {
+    font-size: 22px;
+  }
+
+  .assistant-chat-card {
+    padding: 12px;
+  }
+
+  .assistant-pre-summary {
+    border-radius: 14px;
+  }
+
+  .assistant-message:not(.assistant-pre-summary):not(.assistant-welcome) {
+    max-width: 96%;
+    padding: 12px;
+  }
+
+  .assistant-prompt-card {
+    min-height: 34px;
+    padding-inline: 10px;
+  }
+
+  .assistant-form {
+    bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+}
