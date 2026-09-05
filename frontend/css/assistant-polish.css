@@ -2,8 +2,17 @@
 
 .assistant-page {
   gap: 18px;
+  width: 100%;
   max-width: 1180px;
+  min-width: 0;
   margin: 0 auto;
+  overflow-x: clip;
+}
+
+.assistant-page,
+.assistant-page * {
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .assistant-hero {
@@ -14,11 +23,13 @@
 .assistant-hero h2 {
   font-size: clamp(24px, 2.4vw, 32px);
   letter-spacing: -.025em;
+  overflow-wrap: break-word;
 }
 
 .assistant-hero p {
   max-width: 620px;
   font-size: 15px;
+  overflow-wrap: break-word;
 }
 
 .assistant-safe-pill {
@@ -30,6 +41,20 @@
 .assistant-layout {
   grid-template-columns: minmax(0, 1fr) 280px;
   gap: 20px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.assistant-main,
+.assistant-side,
+.assistant-chat-card,
+.assistant-side-card,
+.assistant-picker-shell,
+.assistant-picker-button,
+.assistant-messages,
+.assistant-form {
+  width: 100%;
+  max-width: 100%;
 }
 
 .assistant-chat-card {
@@ -70,7 +95,6 @@
   padding: 8px 2px 14px;
 }
 
-/* The long welcome duplicated the page title and pushed the useful controls below the fold. */
 .assistant-welcome {
   display: none;
 }
@@ -134,6 +158,7 @@
   flex-wrap: nowrap;
   gap: 7px;
   overflow-x: auto;
+  overflow-y: hidden;
   padding: 8px 0 3px;
   margin: 0;
   scrollbar-width: none;
@@ -168,6 +193,8 @@
 }
 
 .assistant-form input {
+  width: 100%;
+  max-width: 100%;
   min-height: 46px;
   font-size: 15px;
 }
@@ -213,21 +240,37 @@
 
 @media (max-width: 900px) {
   .assistant-page {
-    gap: 14px;
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+    overflow-x: hidden;
   }
 
   .assistant-hero {
-    grid-template-columns: minmax(0,1fr);
-    gap: 8px;
-    padding-bottom: 2px;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    padding: 0 0 4px;
   }
 
   .assistant-hero h2 {
-    font-size: 24px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 0 6px;
+    font-size: 22px;
+    line-height: 1.2;
+    white-space: normal;
   }
 
   .assistant-hero p {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
     font-size: 14px;
+    line-height: 1.45;
+    white-space: normal;
   }
 
   .assistant-safe-wrap {
@@ -237,14 +280,23 @@
   .assistant-layout {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    gap: 10px;
   }
 
-  /* Put the useful context selector before the conversation on mobile. */
+  .assistant-main,
+  .assistant-side {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
   .assistant-side {
     order: -1;
     position: static;
     display: block;
+    margin: 0;
   }
 
   .assistant-side > .assistant-side-card:not(.assistant-picker-card) {
@@ -252,7 +304,18 @@
   }
 
   .assistant-picker-card {
-    padding: 12px 14px;
+    width: 100%;
+    max-width: 100%;
+    padding: 12px;
+    margin: 0;
+    overflow: visible;
+  }
+
+  .assistant-side-head,
+  .assistant-picker-shell,
+  .assistant-picker-button {
+    width: 100%;
+    max-width: 100%;
   }
 
   .assistant-side-head .label {
@@ -264,7 +327,23 @@
   }
 
   .assistant-picker-shell {
-    margin-top: 8px;
+    margin-top: 7px;
+  }
+
+  .assistant-picker-button {
+    min-height: 68px;
+  }
+
+  .assistant-picker-button > span {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .assistant-picker-button b,
+  .assistant-picker-button small {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
   }
 
   .assistant-selected-note,
@@ -273,35 +352,40 @@
   }
 
   .assistant-chat-card {
+    width: 100%;
+    max-width: 100%;
     height: auto;
     min-height: 0;
-    padding: 14px;
+    padding: 12px;
     border-radius: 18px;
     overflow: visible;
   }
 
+  /* On mobile the chat header duplicated information and caused layout conflicts with legacy rules. */
   .assistant-chat-head {
-    margin-bottom: 4px;
+    display: none;
   }
 
-  .assistant-chat-head h3 {
-    font-size: 13px;
-  }
-
-  /* Let the page scroll naturally. Nested scrolling was awkward on phones. */
   .assistant-messages {
+    width: 100%;
+    max-width: 100%;
     flex: none;
     max-height: none;
     overflow: visible;
-    padding: 6px 0 10px;
+    padding: 2px 0 8px;
   }
 
   .assistant-pre-summary {
-    padding: 13px 14px;
+    width: 100%;
+    max-width: 100%;
+    padding: 12px 13px;
   }
 
   .assistant-pre-summary .assistant-summary-lines p {
     font-size: 13px;
+    line-height: 1.42;
+    white-space: normal;
+    overflow-wrap: break-word;
   }
 
   .assistant-pre-summary .assistant-summary-lines p:nth-child(n+3) {
@@ -309,6 +393,8 @@
   }
 
   .assistant-context-card {
+    width: 100%;
+    max-width: 100%;
     grid-template-columns: minmax(0,1fr);
   }
 
@@ -323,53 +409,73 @@
   }
 
   .assistant-quick {
-    margin: 0 -14px;
-    padding: 8px 14px 5px;
+    width: calc(100% + 24px);
+    max-width: none;
+    margin: 0 -12px;
+    padding: 8px 12px 5px;
   }
 
   .assistant-form {
     position: sticky;
     bottom: calc(82px + env(safe-area-inset-bottom));
     z-index: 12;
-    grid-template-columns: 38px minmax(0,1fr) 46px;
-    margin: 5px -2px 0;
-    padding: 6px;
-    background: rgba(255,255,255,.96);
+    display: grid;
+    grid-template-columns: 38px minmax(0,1fr) 44px;
+    width: 100%;
+    max-width: 100%;
+    margin: 4px 0 0;
+    padding: 5px;
+    border-radius: 16px;
+    background: rgba(255,255,255,.97);
     box-shadow: 0 8px 24px rgba(36,64,84,.12);
     backdrop-filter: blur(16px);
+    overflow: visible;
+  }
+
+  .assistant-form .assistant-add-menu {
+    grid-column: 1;
   }
 
   .assistant-form input {
+    grid-column: 2;
+    width: 100%;
+    max-width: 100%;
     min-width: 0;
     padding-inline: 5px;
     font-size: 16px;
   }
 
   .assistant-form > .btn.primary {
-    width: 46px;
-    min-width: 46px;
+    grid-column: 3 !important;
+    grid-row: 1 !important;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    min-height: 44px;
     padding: 0;
+    margin: 0;
     font-size: 0;
+    border-radius: 12px;
   }
 
   .assistant-form > .btn.primary::after {
     content: "→";
-    font-size: 22px;
+    font-size: 21px;
     line-height: 1;
   }
 }
 
 @media (max-width: 480px) {
   .assistant-page {
-    gap: 12px;
+    gap: 10px;
   }
 
   .assistant-hero h2 {
-    font-size: 22px;
+    font-size: 21px;
   }
 
   .assistant-chat-card {
-    padding: 12px;
+    padding: 10px;
   }
 
   .assistant-pre-summary {
