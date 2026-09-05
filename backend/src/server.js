@@ -1,6 +1,5 @@
 const path = require("path");
 const express = require("./utils/expressAdapter");
-const cors = require("./utils/corsAdapter");
 const securityHeaders = require("./utils/securityHeaders");
 const apiRoutes = require("./routes");
 const { runtimeConfig, assertProductionConfig, isCorsOriginAllowed } = require("./config/runtime");
@@ -12,19 +11,49 @@ const config = runtimeConfig();
 
 assertProductionConfig();
 
+function requestHost(req) {
+  const forwardedHost = String(req.headers?.["x-forwarded-host"] || "")
+    .split(",")[0]
+    .trim();
+  return forwardedHost || String(req.headers?.host || "").trim();
+}
+
+function isSameOriginRequest(req, origin) {
+  if (!origin) return true;
+  try {
+    return new URL(origin).host === requestHost(req);
+  } catch (error) {
+    return false;
+  }
+}
+
+function corsMiddleware(req, res, next) {
+  const origin = String(req.headers?.origin || "").trim();
+  const sameOrigin = isSameOriginRequest(req, origin);
+
+  // First-party browser requests do not depend on CORS_ORIGIN. This is the
+  // normal deployment mode for the hosted demo: frontend and API share a host.
+  if (origin && !sameOrigin) {
+    if (!isCorsOriginAllowed(origin)) {
+      return res.status(403).json({ error: "cors_origin_denied" });
+    }
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+  }
+
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Demo-Patient-Id");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, PUT, DELETE, OPTIONS");
+  }
+
+  if (req.method === "OPTIONS") return res.status(204).end();
+  return next();
+}
+
 if (typeof app.disable === "function") app.disable("x-powered-by");
 app.use(securityHeaders);
-app.use(cors({
-  origin(origin, callback) {
-    if (isCorsOriginAllowed(origin)) return callback(null, true);
-    const error = new Error("cors_origin_denied");
-    error.statusCode = 403;
-    return callback(error);
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Demo-Patient-Id"]
-}));
+app.use(corsMiddleware);
 app.use(express.json({ limit: "1mb" }));
 app.use(attachAuth);
 
