@@ -1,3 +1,4 @@
+const path = require("path");
 const express = require("./utils/expressAdapter");
 const cors = require("./utils/corsAdapter");
 const securityHeaders = require("./utils/securityHeaders");
@@ -28,6 +29,18 @@ app.use(express.json({ limit: "1mb" }));
 app.use(attachAuth);
 
 app.use("/api", apiRoutes);
+
+// In hosted demo/production, serve the static patient cabinet from the same
+// origin as the API. This keeps HttpOnly session cookies first-party and avoids
+// cross-site cookie/CORS problems on mobile browsers.
+if (typeof express.static === "function") {
+  const frontendDir = path.resolve(__dirname, "../../frontend");
+  app.use(express.static(frontendDir));
+  app.get("*", (req, res, next) => {
+    if (req.path && req.path.startsWith("/api/")) return next();
+    return res.sendFile(path.join(frontendDir, "index.html"));
+  });
+}
 
 app.use((req, res) => {
   res.status(404).json({ error: "not_found" });
