@@ -96,7 +96,19 @@ window.PatientStorage = (() => {
 })();
 
 window.HealthAPI = (() => {
-  const API_BASE = "http://localhost:3001/api";
+  function resolveApiBase() {
+    const configured = String(window.ATLAS_API_BASE || "").trim();
+    if (configured) return configured.replace(/\/+$/, "");
+
+    const hostname = window.location.hostname;
+    if (["localhost", "127.0.0.1"].includes(hostname)) {
+      return "http://localhost:3001/api";
+    }
+
+    return `${window.location.protocol}//api.${hostname}/api`;
+  }
+
+  const API_BASE = resolveApiBase();
   let mode = "unknown";
   let lastError = "";
   let lastErrorCode = "";
@@ -115,6 +127,7 @@ window.HealthAPI = (() => {
       const requestHeaders = { "Content-Type": "application/json", ...headers };
       if (patientId) requestHeaders["X-Demo-Patient-Id"] = patientId;
       const response = await fetch(`${API_BASE}${path}`, {
+        credentials: "include",
         headers: requestHeaders,
         ...fetchOptions
       });
