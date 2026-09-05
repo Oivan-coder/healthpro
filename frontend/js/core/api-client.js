@@ -182,6 +182,7 @@ window.HealthAPI = (() => {
 
   function getSummary() { return request("/summary"); }
   function getPatient() { return request("/patient"); }
+  function updatePatient(payload) { return patch("/patient", payload); }
   function getLabs() { return request("/labs"); }
   function getLabHistory() { return request("/labs/history"); }
   function getLabCatalog() { return request("/labs/catalog"); }
@@ -223,6 +224,7 @@ window.HealthAPI = (() => {
     adminResetPassword,
     getSummary,
     getPatient,
+    updatePatient,
     getLabs,
     getLabHistory,
     getLabCatalog,
