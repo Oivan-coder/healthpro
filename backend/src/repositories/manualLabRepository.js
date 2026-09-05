@@ -46,7 +46,7 @@ async function isPatientAccessible(organizationId, patientId) {
     `SELECT p.id
      FROM patients p
      JOIN users u ON u.patient_id = p.id
-     WHERE p.id = ? AND u.organization_id = ? AND u.role = 'user'
+     WHERE p.id = ? AND u.organization_id = ? AND u.role IN ('user', 'tester')
      LIMIT 1`,
     [patientId, organizationId]
   );
@@ -199,7 +199,7 @@ async function createManualReport({ organizationId, actorUserId, patientId, serv
       `SELECT p.id
        FROM patients p
        JOIN users u ON u.patient_id = p.id
-       WHERE p.id = ? AND u.organization_id = ? AND u.role = 'user'
+       WHERE p.id = ? AND u.organization_id = ? AND u.role IN ('user', 'tester')
        LIMIT 1`,
       [patientId, organizationId]
     );
