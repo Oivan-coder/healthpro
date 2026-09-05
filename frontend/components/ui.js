@@ -1,3 +1,11 @@
+if (!document.querySelector('link[data-atlas-responsive-fixes]')) {
+  const responsiveStyles = document.createElement('link');
+  responsiveStyles.rel = 'stylesheet';
+  responsiveStyles.href = './css/responsive-fixes.css?v=adaptive-1';
+  responsiveStyles.dataset.atlasResponsiveFixes = 'true';
+  document.head.appendChild(responsiveStyles);
+}
+
 window.UI = (() => {
   const root = () => document.getElementById("pageRoot");
 
