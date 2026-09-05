@@ -27,7 +27,7 @@ async function createReport(req, res, next) {
     await auditService.createAuditEventFromRequest(req, {
       eventType: "manual_lab_report_created",
       patientId: report.patientId,
-      actorType: "admin_user",
+      actorType: req.auth.user.role === "tester" ? "tester_user" : "admin_user",
       actorId: req.auth.user.id,
       resourceType: "lab_report",
       resourceId: report.id,
