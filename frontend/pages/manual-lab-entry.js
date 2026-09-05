@@ -11,6 +11,8 @@ window.ManualLabEntryState = window.ManualLabEntryState || {
 window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
   const root = UI.root();
   const state = window.ManualLabEntryState;
+  const currentUser = window.App?.user?.() || null;
+  const isTester = currentUser?.role === "tester";
 
   const escapeHtml = (value) => String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -40,16 +42,20 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
     return body;
   }
 
+  const userPromise = isTester
+    ? Promise.resolve({ users: [{ ...currentUser, status: currentUser?.status || "active" }] })
+    : HealthAPI.adminListUsers();
   const [userResult, serviceResult] = await Promise.all([
-    HealthAPI.adminListUsers(),
+    userPromise,
     manualRequest("/admin/lab-entry/services")
   ]);
   const patients = (userResult?.users || [])
-    .filter((user) => user.role === "user" && user.patientId && user.status === "active")
+    .filter((user) => ["user", "tester"].includes(user.role) && user.patientId && user.status === "active")
     .sort((a, b) => String(a.displayName).localeCompare(String(b.displayName), "ru"));
   const services = serviceResult?.services || [];
 
   if (!state.reportDate) state.reportDate = todayLocal();
+  if (isTester) state.patientId = currentUser?.patientId || "";
   if (state.patientId && !patients.some((patient) => patient.patientId === state.patientId)) state.patientId = "";
   if (state.serviceId && !services.some((service) => service.id === state.serviceId)) state.serviceId = "";
 
@@ -57,7 +63,7 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
     <section class="card">
       <div class="section-head">
         <div>
-          <div class="label">Ручной ввод • admin-only</div>
+          <div class="label">Ручной ввод результатов</div>
           <h2>Внести лабораторный результат</h2>
           <p class="muted">Исследования, показатели, единицы и референсы уже находятся в справочнике. Здесь вводится только результат пациента.</p>
         </div>
@@ -80,14 +86,15 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
     <section class="grid-2" style="margin-top:16px">
       <div class="card">
         <div class="label">1. Исследование</div>
-        <h2>Кому и за какую дату</h2>
+        <h2>${isTester ? "Ваш профиль и дата результата" : "Кому и за какую дату"}</h2>
         <div class="form-stack">
           <label>Пациент
-            <select id="manualPatientSelect">
+            <select id="manualPatientSelect" ${isTester ? "disabled" : ""}>
               <option value="">Выберите пациента</option>
               ${patients.map((patient) => `<option value="${escapeHtml(patient.patientId)}" ${patient.patientId === state.patientId ? "selected" : ""}>${escapeHtml(patient.displayName)} · ${escapeHtml(patient.patientId)}</option>`).join("")}
             </select>
           </label>
+          ${isTester ? `<p class="muted">В тестовой учётке результаты добавляются только в ваш привязанный профиль пациента.</p>` : ""}
           <label>Дата результата
             <input id="manualReportDate" type="date" value="${escapeHtml(state.reportDate)}" />
           </label>
@@ -173,7 +180,7 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
 
   function lockHeaderFields() {
     const locked = state.entries.length > 0;
-    patientSelect.disabled = locked;
+    patientSelect.disabled = locked || isTester;
     reportDateInput.disabled = locked;
     serviceSelect.disabled = locked;
   }
@@ -339,6 +346,7 @@ window.Pages["manual-lab-entry"] = async function renderManualLabEntry() {
     } catch (error) {
       const messages = {
         patient_not_available: "Профиль пациента недоступен",
+        forbidden: "Для этой учётной записи доступен только собственный тестовый профиль",
         lab_service_not_found: "Исследование не найдено",
         test_not_in_service: "Показатель не относится к исследованию",
         duplicate_test_in_report: "Показатель добавлен дважды",
