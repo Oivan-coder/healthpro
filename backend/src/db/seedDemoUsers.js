@@ -28,7 +28,13 @@ async function upsertUser(connection, user) {
 async function main() {
   const mysql = require("mysql2/promise");
   const config = dbConfig();
-  const connection = await mysql.createConnection({ ...config, database: config.database });
+  const connection = await mysql.createConnection({
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password,
+    database: config.database
+  });
 
   const organizationId = process.env.DEMO_ORGANIZATION_ID || "org_demo";
   const organizationName = process.env.DEMO_ORGANIZATION_NAME || "Демо-клиника Атласа здоровья";
