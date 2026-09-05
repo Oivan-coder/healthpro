@@ -9,9 +9,9 @@
   <title>Атлас здоровья — кабинет пациента</title>
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" href="./assets/icons/atlas-icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="./css/theme.css?v=patient-ui-86-patient-state" />
-  <link rel="stylesheet" href="./css/layout.css?v=patient-ui-86-patient-state" />
-  <link rel="stylesheet" href="./css/mobile.css?v=patient-ui-86-patient-state" />
+  <link rel="stylesheet" href="./css/theme.css?v=closed-demo-auth-1" />
+  <link rel="stylesheet" href="./css/layout.css?v=closed-demo-auth-1" />
+  <link rel="stylesheet" href="./css/mobile.css?v=closed-demo-auth-1" />
 </head>
 <body class="is-login">
   <div class="bg-orb bg-orb-a"></div>
@@ -23,7 +23,7 @@
         <div class="badge">Атлас здоровья</div>
         <h1>Атлас здоровья</h1>
         <p>Спокойная лента лабораторного здоровья</p>
-        <p class="login-description">Результаты, динамика, документы и следующий шаг к врачу в понятном пациентском виде.</p>
+        <p class="login-description">Закрытый демонстрационный контур. Используются только синтетические данные.</p>
         <div class="login-benefits">
           <div><b>Лента</b></div>
           <div><b>Анализы</b></div>
@@ -32,7 +32,7 @@
         <div class="login-preview-image">
           <div class="login-preview-top">
             <span>Лента здоровья</span>
-            <b>Алексей, результаты обновлены</b>
+            <b>Результаты обновлены</b>
           </div>
           <div class="login-preview-feed" aria-hidden="true">
             <div><span>Глюкоза</span><b>6.2</b><small>обсудить</small></div>
@@ -48,86 +48,28 @@
       </div>
 
       <form class="login-form" id="loginForm">
-        <div class="auth-tabs">
-          <button type="button" class="active" data-auth-tab="login">Вход</button>
-          <button type="button" data-auth-tab="register">Регистрация</button>
-        </div>
-
         <div class="auth-panel active" id="loginPanel">
-          <h2>Вход пациента</h2>
-          <p class="muted">Войдите по телефону и демо-коду, как в сценарии SMS-подтверждения.</p>
+          <div class="label">Закрытый демо-контур</div>
+          <h2>Вход</h2>
+          <p class="muted">Учётная запись создаётся администратором.</p>
 
-          <label>Телефон
-            <input id="phoneInput" value="+7 900 123-45-67" />
+          <label>Логин
+            <input id="loginInput" autocomplete="username" required />
           </label>
 
-          <label>Код из SMS
-            <input id="smsCodeInput" inputmode="numeric" autocomplete="one-time-code" maxlength="4" placeholder="1234" />
+          <label>Пароль
+            <input id="passwordInput" type="password" autocomplete="current-password" required />
           </label>
 
-          <p class="auth-hint">Демо-код: <b>1234</b></p>
-          <p class="auth-error" id="loginError" hidden>Введите демо-код 1234, чтобы войти в кабинет.</p>
+          <p class="auth-error" id="loginError" hidden>Не удалось выполнить вход.</p>
 
-          <div class="demo-patient-picker" id="demoPatientPicker">
-            <div class="label">Выберите демо-пациента</div>
-            <button type="button" class="demo-patient-card active" data-demo-patient-id="alexey">
-              <b>Алексей Петров</b>
-              <span>Метаболический риск</span>
-              <small>MIS-248019 • глюкоза, HbA1c, липиды</small>
-            </button>
-            <button type="button" class="demo-patient-card" data-demo-patient-id="anna">
-              <b>Анна Смирнова</b>
-              <span>Анемия / железодефицит</span>
-              <small>MIS-391204 • ОАК, ферритин, железо</small>
-            </button>
-            <button type="button" class="demo-patient-card" data-demo-patient-id="dmitry">
-              <b>Дмитрий Орлов</b>
-              <span>Печеночные ферменты</span>
-              <small>MIS-582771 • АЛТ, АСТ, ГГТ</small>
-            </button>
-          </div>
-
-          <label class="consent-line">
-            <input type="checkbox" id="loginConsent" checked />
-            <span>Согласен с обработкой персональных данных</span>
-          </label>
-
-          <div class="demo-med-card">
-            <span>Карта пациента</span>
-            <b id="demoMisCard">MIS-248019</b>
-            <small id="demoPatientProfile">Метаболический риск • данные подключены в демо-режиме.</small>
-          </div>
-
-          <button class="btn primary wide" type="submit" onclick="window.App?.handleLoginSubmit(event)">Войти в демо</button>
-          <p class="security-note">В production вход будет подтверждаться одноразовым SMS-кодом. Пояснения в кабинете не являются диагнозом.</p>
-        </div>
-
-        <div class="auth-panel" id="registerPanel" hidden>
-          <h2>Регистрация</h2>
-          <p class="muted">Оставьте телефон и дату рождения для демонстрации регистрационного шага.</p>
-
-          <label>Телефон
-            <input id="registerPhoneInput" value="+7 900 123-45-67" />
-          </label>
-
-          <label>Дата рождения
-            <input id="registerBirthInput" value="14.08.1983" />
-          </label>
-
-          <label class="consent-line">
-            <input type="checkbox" id="registerConsent" />
-            <span>Я согласен с обработкой персональных данных и политикой конфиденциальности</span>
-          </label>
-
-          <p class="auth-hint" id="registerDemoMessage">В демо-версии регистрация имитируется. В production после подтверждения телефона пациент сможет привязать карту клиники.</p>
+          <button class="btn primary wide" type="submit">Войти</button>
+          <p class="security-note">Доступ предназначен только для тестирования. Реальные данные пациентов не используются.</p>
 
           <div class="legal-links">
             <button type="button" data-legal-modal="privacyModal">Политика конфиденциальности</button>
-            <button type="button" data-legal-modal="consentModal">Согласие на обработку ПДн</button>
             <button type="button" data-legal-modal="termsModal">Условия использования</button>
           </div>
-
-          <a class="btn primary wide" href="#register-demo" id="registerDemoBtn">Продолжить</a>
         </div>
       </form>
     </div>
@@ -136,29 +78,30 @@
   <div class="app app-shell hidden" id="appView">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
-          <div class="brand-logo">АЗ</div>
-          <div>
+        <div class="brand-logo">АЗ</div>
+        <div>
           <div class="brand-name">Атлас здоровья</div>
-          <div class="brand-caption">лабораторная динамика</div>
+          <div class="brand-caption">закрытый демо-контур</div>
         </div>
       </div>
 
       <nav class="side-nav" id="sideNav">
-        <a href="#dashboard" data-route="dashboard" data-route-action="dashboard" class="nav-link active"><span>⌁</span>Сегодня</a>
-        <a href="#labs" data-route="labs" data-route-action="labs" class="nav-link"><span>◌</span>Анализы</a>
-        <a href="#lab-history" data-route="lab-history" data-route-action="lab-history" class="nav-link"><span>▦</span>История</a>
-        <a href="#appointments" data-route="appointments" data-route-action="appointments" class="nav-link"><span>＋</span>Записаться</a>
-        <a href="#visits" data-route="visits" data-route-action="visits" class="nav-link"><span>⌘</span>Врачи</a>
-        <a href="#reports" data-route="reports" data-route-action="reports" class="nav-link"><span>□</span>Документы</a>
-        <a href="#assistant" data-route="assistant" data-route-action="assistant" class="nav-link"><span>?</span>Помощник</a>
-        <a href="#profile" data-route="profile" data-route-action="profile" class="nav-link"><span>☉</span>Профиль</a>
-        <a href="#integration" data-route="integration" data-route-action="integration" class="nav-link nav-link-tech"><span>⇄</span>Интеграция</a>
+        <a href="#dashboard" data-route="dashboard" data-route-action="dashboard" data-user-only class="nav-link active"><span>⌁</span>Сегодня</a>
+        <a href="#labs" data-route="labs" data-route-action="labs" data-user-only class="nav-link"><span>◌</span>Анализы</a>
+        <a href="#lab-history" data-route="lab-history" data-route-action="lab-history" data-user-only class="nav-link"><span>▦</span>История</a>
+        <a href="#appointments" data-route="appointments" data-route-action="appointments" data-user-only class="nav-link"><span>＋</span>Записаться</a>
+        <a href="#visits" data-route="visits" data-route-action="visits" data-user-only class="nav-link"><span>⌘</span>Врачи</a>
+        <a href="#reports" data-route="reports" data-route-action="reports" data-user-only class="nav-link"><span>□</span>Документы</a>
+        <a href="#assistant" data-route="assistant" data-route-action="assistant" data-user-only class="nav-link"><span>?</span>Помощник</a>
+        <a href="#profile" data-route="profile" data-route-action="profile" data-user-only class="nav-link"><span>☉</span>Профиль</a>
+        <a href="#admin-users" data-route="admin-users" data-route-action="admin-users" data-admin-only class="nav-link" hidden><span>⚙</span>Пользователи</a>
+        <a href="#integration" data-route="integration" data-route-action="integration" data-admin-only class="nav-link nav-link-tech" hidden><span>⇄</span>Интеграция</a>
       </nav>
 
       <div class="side-card">
-        <div class="label">Подсказка</div>
-        <div class="sync-row"><i></i><b id="syncStatusText">Результаты обновлены</b></div>
-        <small id="syncTime">Откройте лабораторию, чтобы посмотреть динамику.</small>
+        <div class="label">Статус</div>
+        <div class="sync-row"><i></i><b id="syncStatusText">Кабинет готов</b></div>
+        <small id="syncTime">Данные закрытого демо-контура.</small>
       </div>
     </aside>
 
@@ -170,9 +113,10 @@
           <h1 id="routeTitle">Личный кабинет пациента</h1>
         </div>
         <div class="top-actions">
-          <button class="avatar" id="avatarMenuBtn" type="button">АП</button>
+          <button class="avatar" id="avatarMenuBtn" type="button">АЗ</button>
           <div class="profile-menu" id="profileMenu" hidden>
-            <button type="button" data-route-action="profile">Профиль</button>
+            <div class="muted" id="profileMenuUser"></div>
+            <button type="button" data-route-action="profile" data-user-only>Профиль</button>
             <button type="button" id="logoutBtn">Выйти</button>
           </div>
         </div>
@@ -198,15 +142,7 @@
       <h3>Политика конфиденциальности</h3>
       <button class="icon-btn" data-close-modal>×</button>
     </div>
-    <p class="muted">Документ будет добавлен перед запуском. Медицинские данные отображаются после подтверждения доступа пациента.</p>
-  </section>
-
-  <section class="modal legal-modal" id="consentModal">
-    <div class="modal-head">
-      <h3>Согласие на обработку ПДн</h3>
-      <button class="icon-btn" data-close-modal>×</button>
-    </div>
-    <p class="muted">Документ будет добавлен перед запуском. В демо-версии данные используются только для проверки сценария кабинета.</p>
+    <p class="muted">В закрытом демонстрационном контуре используются только синтетические данные.</p>
   </section>
 
   <section class="modal legal-modal" id="termsModal">
@@ -214,7 +150,27 @@
       <h3>Условия использования</h3>
       <button class="icon-btn" data-close-modal>×</button>
     </div>
-    <p class="muted">Документ будет добавлен перед запуском. Пояснения в кабинете помогают ориентироваться в данных, но не заменяют консультацию врача.</p>
+    <p class="muted">Система предназначена для демонстрации и тестирования. Пояснения в кабинете не заменяют консультацию врача.</p>
+  </section>
+
+  <section class="modal" id="passwordChangeModal">
+    <div class="modal-head">
+      <h3>Смените временный пароль</h3>
+    </div>
+    <form id="passwordChangeForm">
+      <p class="muted">Перед первым использованием кабинета задайте собственный пароль.</p>
+      <label>Текущий временный пароль
+        <input id="currentPasswordInput" type="password" autocomplete="current-password" required />
+      </label>
+      <label>Новый пароль
+        <input id="newPasswordInput" type="password" autocomplete="new-password" minlength="10" required />
+      </label>
+      <label>Повторите новый пароль
+        <input id="newPasswordConfirmInput" type="password" autocomplete="new-password" minlength="10" required />
+      </label>
+      <p class="auth-error" id="passwordChangeError" hidden>Не удалось изменить пароль.</p>
+      <button class="btn primary wide" type="submit">Сохранить новый пароль</button>
+    </form>
   </section>
 
   <section class="modal" id="bookingModal">
@@ -228,15 +184,16 @@
 
   <div class="toast" id="toast"></div>
 
-  <script src="./js/core/api-client.js?v=patient-ui-86-patient-state"></script>
-  <script src="./components/ui.js?v=patient-ui-86-patient-state"></script>
-  <script src="./components/charts.js?v=patient-ui-86-patient-state"></script>
-  <script src="./pages/dashboard.js?v=patient-ui-86-patient-state"></script>
-  <script src="./pages/labs.js?v=patient-ui-86-patient-state"></script>
-  <script src="./pages/appointments.js?v=patient-ui-86-patient-state"></script>
-  <script src="./pages/documents.js?v=patient-ui-86-patient-state"></script>
-  <script src="./pages/assistant.js?v=patient-ui-86-patient-state"></script>
-  <script src="./pages/admin.js?v=patient-ui-86-patient-state"></script>
-  <script src="./js/core/app.js?v=patient-ui-86-patient-state"></script>
+  <script src="./js/core/api-client.js?v=closed-demo-auth-1"></script>
+  <script src="./components/ui.js?v=closed-demo-auth-1"></script>
+  <script src="./components/charts.js?v=closed-demo-auth-1"></script>
+  <script src="./pages/dashboard.js?v=closed-demo-auth-1"></script>
+  <script src="./pages/labs.js?v=closed-demo-auth-1"></script>
+  <script src="./pages/appointments.js?v=closed-demo-auth-1"></script>
+  <script src="./pages/documents.js?v=closed-demo-auth-1"></script>
+  <script src="./pages/assistant.js?v=closed-demo-auth-1"></script>
+  <script src="./pages/admin.js?v=closed-demo-auth-1"></script>
+  <script src="./pages/user-admin.js?v=closed-demo-auth-1"></script>
+  <script src="./js/core/app.js?v=closed-demo-auth-1"></script>
 </body>
 </html>
