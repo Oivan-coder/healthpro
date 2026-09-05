@@ -8,7 +8,7 @@ const reportRoutes = require("./reportRoutes");
 const integrationRoutes = require("./integrationRoutes");
 const assistantRoutes = require("./assistantRoutes");
 const auditRoutes = require("./auditRoutes");
-const { requireAuth } = require("../middleware/auth");
+const { requireAuth, requirePasswordReady } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -23,6 +23,7 @@ router.get("/health", (req, res) => {
 
 router.use(authRoutes);
 router.use(requireAuth);
+router.use(requirePasswordReady);
 router.use(adminUserRoutes);
 router.use(patientRoutes);
 router.use(labRoutes);
