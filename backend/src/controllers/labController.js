@@ -1,11 +1,16 @@
 const labService = require("../services/labService");
+const manualLabService = require("../services/manualLabService");
 const auditService = require("../services/auditService");
 const { getDemoPatientId, storagePatientId } = require("../utils/demoPatientContext");
 const fs = require("fs");
 const path = require("path");
 
 async function getLabs(req, res, next) {
-  try { res.json(await labService.getLabs(getDemoPatientId(req))); } catch (error) { next(error); }
+  try {
+    const patientContextId = getDemoPatientId(req);
+    const data = await labService.getLabs(patientContextId);
+    res.json(await manualLabService.enrichLabs(data, storagePatientId(patientContextId)));
+  } catch (error) { next(error); }
 }
 
 async function getCatalog(req, res, next) {
@@ -13,7 +18,11 @@ async function getCatalog(req, res, next) {
 }
 
 async function getHistory(req, res, next) {
-  try { res.json(await labService.getHistory(getDemoPatientId(req))); } catch (error) { next(error); }
+  try {
+    const patientContextId = getDemoPatientId(req);
+    const history = await labService.getHistory(patientContextId);
+    res.json(await manualLabService.enrichHistory(history, storagePatientId(patientContextId)));
+  } catch (error) { next(error); }
 }
 
 async function importLabs(req, res, next) {
@@ -33,14 +42,25 @@ async function validateLabs(req, res, next) {
 }
 
 async function getLabReports(req, res, next) {
-  try { res.json(await labService.getLabReports(getDemoPatientId(req))); } catch (error) { next(error); }
+  try {
+    const patientContextId = getDemoPatientId(req);
+    const storageId = storagePatientId(patientContextId);
+    const reports = await labService.getLabReports(patientContextId);
+    const enriched = await manualLabService.enrichReportSummaries(
+      reports,
+      storageId,
+      (id) => labService.getLabReportById(id, patientContextId)
+    );
+    res.json(enriched);
+  } catch (error) { next(error); }
 }
 
 async function getLabReportById(req, res, next) {
   try {
-    const report = await labService.getLabReportById(req.params.id, getDemoPatientId(req));
+    const patientContextId = getDemoPatientId(req);
+    const report = await labService.getLabReportById(req.params.id, patientContextId);
     if (!report) return res.status(404).json({ error: "lab_report_not_found" });
-    res.json(report);
+    res.json(await manualLabService.enrichReport(report, storagePatientId(patientContextId)));
   } catch (error) { next(error); }
 }
 
@@ -122,9 +142,10 @@ async function downloadLabReportPdf(req, res, next) {
 
 async function getTestHistory(req, res, next) {
   try {
-    const history = await labService.getTestHistory(req.params.testCode, getDemoPatientId(req));
+    const patientContextId = getDemoPatientId(req);
+    const history = await labService.getTestHistory(req.params.testCode, patientContextId);
     if (!history) return res.status(404).json({ error: "lab_test_history_not_found" });
-    res.json(history);
+    res.json(await manualLabService.enrichTestHistory(history, storagePatientId(patientContextId)));
   } catch (error) { next(error); }
 }
 
