@@ -78,6 +78,12 @@ function patientIntro(data = {}) {
   return { name, details: details.join(", ") };
 }
 
+function anamnesisLine(data = {}) {
+  const events = (data.historyEvents || []).slice(0, 4);
+  if (!events.length) return "";
+  return `Из подтверждённого анамнеза я также учитываю: ${events.map(event => event.title).join("; ")}.`;
+}
+
 function labToContext(lab = {}) {
   return {
     test_code: lab.code || null,
@@ -138,16 +144,17 @@ async function evidenceAnswer(context = {}, patientId) {
   if (!context.test_name) return null;
   const knowledge = clinicalKnowledge.knowledgeFor(context);
 
-  let data = { patient: {}, labs: [] };
+  let data = { patient: {}, labs: [], historyEvents: [] };
   if (patientId) {
     try {
       data = await legacyProvider.buildPatientSummaryContext(patientId);
     } catch (error) {
-      data = { patient: {}, labs: [] };
+      data = { patient: {}, labs: [], historyEvents: [] };
     }
   }
   const patient = patientIntro(data);
   const prefix = patient.name ? `${patient.name}, ` : "";
+  const anamnesis = anamnesisLine(data);
 
   if (!knowledge) {
     return {
@@ -155,8 +162,10 @@ async function evidenceAnswer(context = {}, patientId) {
       answer: [
         `${prefix}${context.test_name}: ${valueText(context) || "значение не передано"} — ${flagText(context.flag)}.`,
         patient.details ? `При разборе я учитываю данные профиля: ${patient.details}.` : "",
+        anamnesis,
         "Для этого показателя в подключённой доказательной базе пока нет отдельного сценария, поэтому я не буду придумывать причины отклонения.",
-        "Если расскажете, зачем сдавали анализ и есть ли жалобы, я помогу сформулировать полезные вопросы врачу."
+        anamnesis ? "Сохранённый анамнез учитывается как персональный контекст, но сам по себе не считается причиной изменения показателя." : "",
+        "Если расскажете, зачем сдавали анализ, я помогу сформулировать полезные вопросы врачу."
       ].filter(Boolean).join("\n"),
       actions: [],
       basis: {
@@ -167,6 +176,7 @@ async function evidenceAnswer(context = {}, patientId) {
           patient: data.patient?.name || null,
           age: data.patient?.age || null,
           sex: legacyProvider.sexText(data.patient?.sex),
+          anamnesisEvents: (data.historyEvents || []).length,
           test_code: context.test_code || null,
           test_name: context.test_name,
           value: context.value ?? null,
@@ -197,9 +207,11 @@ async function evidenceAnswer(context = {}, patientId) {
     answer: [
       `${prefix}${context.test_name}: ${valueText(context) || "значение не передано"} — ${flagText(context.flag)}.${reference}`,
       historyCount > 1 ? `По этому показателю у вас есть ${historyCount} значения в динамике.` : "",
+      anamnesis,
       knowledge.interpretation,
       related,
       missingLine,
+      anamnesis ? "Сохранённый анамнез учитывается как персональный контекст, но не считается причиной отклонения автоматически." : "",
       "Это справочное пояснение по подключённым документам, а не диагноз и не назначение лечения или обследования.",
       "Источники:",
       ...sourceLines(knowledge, context)
@@ -213,6 +225,7 @@ async function evidenceAnswer(context = {}, patientId) {
         patient: data.patient?.name || null,
         age: data.patient?.age || null,
         sex: legacyProvider.sexText(data.patient?.sex),
+        anamnesisEvents: (data.historyEvents || []).length,
         test_code: context.test_code || null,
         test_name: context.test_name,
         value: context.value ?? null,
