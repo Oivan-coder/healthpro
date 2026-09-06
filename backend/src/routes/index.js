@@ -1,5 +1,6 @@
 const express = require("../utils/expressAdapter");
 const authRoutes = require("./authRoutes");
+const passkeyRoutes = require("./passkeyRoutes");
 const adminUserRoutes = require("./adminUserRoutes");
 const manualLabRoutes = require("./manualLabRoutes");
 const patientRoutes = require("./patientRoutes");
@@ -23,6 +24,7 @@ router.get("/health", (req, res) => {
 });
 
 router.use(authRoutes);
+router.use(passkeyRoutes);
 router.use(requireAuth);
 router.use(requirePasswordReady);
 router.use(adminUserRoutes);
