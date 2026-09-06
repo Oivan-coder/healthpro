@@ -2,6 +2,14 @@
 window.Pages = window.Pages || {};
 window.DashboardState = window.DashboardState || {editingTrends:false, trendQuery:""};
 
+if (!window.__atlasTrackpadNavLoaded) {
+  window.__atlasTrackpadNavLoaded = true;
+  const script = document.createElement("script");
+  script.src = "./js/trackpad-nav.js?v=trackpad-nav-1";
+  script.defer = true;
+  document.head.appendChild(script);
+}
+
 window.Pages.dashboard = async function renderDashboard() {
   const [data, reports] = await Promise.all([HealthAPI.summary(), HealthAPI.getLabReports()]);
   const {escape:e, value, status, attention} = Cabinet;
