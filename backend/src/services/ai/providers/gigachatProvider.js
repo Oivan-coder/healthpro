@@ -39,7 +39,8 @@ const SYSTEM_PROMPT = [
   "При непонятном местоимении или отсутствующем показателе задай одно короткое уточнение. Не переключайся на старую карточку.",
   "Учитывай truncated: список данных неполный. Не объявляй отсутствие показателя/анамнеза лишь потому, что его нет в сокращённом контексте.",
   "На острые опасные симптомы допустима рекомендация срочно обратиться за медицинской помощью, без диагноза и схемы лечения.",
-  "Не добавляй медицинские дисклеймеры к обычному разговору."
+  "Не добавляй медицинские дисклеймеры к обычному разговору.",
+  'Верни только JSON вида {"answer":"текст ответа","evidence_ids":[]}. В evidence_ids указывай только ID реально использованных evidence-тезисов.'
 ].join("\n");
 
 const REVIEW_PROMPT = [
@@ -56,25 +57,44 @@ const REVIEW_PROMPT = [
   "answers_question=true, если ответ отвечает на текущую тему или просит нужное уточнение; ответ про старый показатель на новую тему не проходит.",
   "context_matches_question=true только если grounding.intent и выбранные labs соответствуют текущему вопросу. Старый выбранный анализ на вопрос о возрасте — false.",
   "Проверь cited evidence_ids: должны покрывать медицинские утверждения. Список ID без соответствующего тезиса не подтверждает ответ.",
+  'Верни только JSON вида {"safe":true,"grounded":true,"answers_question":true,"context_matches_question":true,"medical_claims":false,"evidence_ids":[]}.',
   "Любое сомнение — false для соответствующей проверки."
 ].join("\n");
 
+const validAnswer=value=>typeof value?.answer==="string"&&value.answer.trim()&&value.answer.length<=6500&&Array.isArray(value.evidence_ids);
+const validReview=value=>value&&typeof value.safe==="boolean"&&typeof value.grounded==="boolean"&&
+  typeof value.answers_question==="boolean"&&typeof value.context_matches_question==="boolean"&&
+  typeof value.medical_claims==="boolean"&&Array.isArray(value.evidence_ids);
+
+async function objectReply(messages,config,options,validator,errorName,repairInstruction) {
+  const first=await client.complete(messages,config,options);
+  let parsed=client.parseObject(first);
+  if(validator(parsed)) return parsed;
+  const repaired=await client.complete([
+    ...messages,
+    {role:"assistant",content:String(first).slice(0,5000)},
+    {role:"user",content:repairInstruction}
+  ],config,{...options,temperature:0});
+  parsed=client.parseObject(repaired);
+  if(!validator(parsed)) throw new Error(errorName);
+  return parsed;
+}
+
 async function chat(payload,route,grounding,config) {
   const input={question:payload.message,conversation:payload.history,grounding};
-  const generated=client.parseObject(await client.complete([
+  const generated=await objectReply([
     {role:"system",content:SYSTEM_PROMPT},{role:"user",content:JSON.stringify(input)}
-  ],config,{maxTokens:1100,temperature:0.2,responseFormat:ANSWER_SCHEMA}));
-  if(typeof generated?.answer!=="string" || !generated.answer.trim() || generated.answer.length>6500 || !Array.isArray(generated.evidence_ids))
-    throw new Error("answer_invalid_response");
+  ],config,{maxTokens:1100,temperature:0.2,responseFormat:ANSWER_SCHEMA},validAnswer,"answer_invalid_response",
+  'Преобразуй предыдущий ответ в один валидный JSON-объект строго вида {"answer":"...","evidence_ids":[]}. Не добавляй пояснений или markdown.');
   const allowed=new Set(grounding.evidence.map(item=>item.id));
   if(generated.evidence_ids.some(id=>typeof id!=="string"||!allowed.has(id))) throw new Error("answer_unknown_evidence");
-  const review=client.parseObject(await client.complete([
+  const review=await objectReply([
     {role:"system",content:REVIEW_PROMPT},
     {role:"user",content:JSON.stringify({...input,candidate:generated})}
-  ],config,{maxTokens:350,responseFormat:REVIEW_SCHEMA}));
-  if(review?.answers_question===false || review?.context_matches_question===false) throw new Error("answer_off_topic");
-  if(review?.safe!==true || review.grounded!==true || review.answers_question!==true || review.context_matches_question!==true ||
-     typeof review.medical_claims!=="boolean" || !Array.isArray(review.evidence_ids) ||
+  ],config,{maxTokens:350,responseFormat:REVIEW_SCHEMA},validReview,"review_invalid_response",
+  'Повтори проверку строго одним валидным JSON-объектом с полями safe, grounded, answers_question, context_matches_question, medical_claims и evidence_ids. Без пояснений.');
+  if(review.answers_question===false || review.context_matches_question===false) throw new Error("answer_off_topic");
+  if(review.safe!==true || review.grounded!==true || review.answers_question!==true || review.context_matches_question!==true ||
      review.evidence_ids.some(id=>!allowed.has(id)||!generated.evidence_ids.includes(id)) ||
      (review.medical_claims && !review.evidence_ids.length)) throw new Error("answer_not_grounded");
   return {answer:generated.answer.trim(),evidenceIds:[...new Set(generated.evidence_ids)],safetyGuardApplied:true};

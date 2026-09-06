@@ -65,6 +65,9 @@ async function complete(messages, config, options={}) {
       if(cached.token===token) {cached.token="";cached.expiresAt=0;}
       return complete(messages,config,{...options,retried:true});
     }
+    if(options.responseFormat && !options.formatFallback && [400,404,415,422].includes(err.statusCode)) {
+      return complete(messages,config,{...options,responseFormat:null,formatFallback:true});
+    }
     throw err;
   }
 }
@@ -72,7 +75,8 @@ function parseObject(text) {
   const raw=String(text||"").trim().replace(/^\x60\x60\x60(?:json)?\s*/i,"").replace(/\s*\x60\x60\x60$/,"");
   const parse=value=>{
     try {
-      const result=JSON.parse(value);
+      let result=JSON.parse(value);
+      if(typeof result==="string") result=JSON.parse(result);
       return result && typeof result==="object" && !Array.isArray(result)?result:null;
     } catch {return null;}
   };

@@ -50,7 +50,7 @@ function getAiConfig() {
     gigachat: {
       authKey: gigachatAuthKey(),
       authUrl: process.env.GIGACHAT_AUTH_URL || "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
-      apiUrl: process.env.GIGACHAT_API_URL || "https://gigachat.devices.sberbank.ru/api/v1",
+      apiUrl: process.env.GIGACHAT_API_URL || "https://api.giga.chat/v1",
       scope: process.env.GIGACHAT_SCOPE || "GIGACHAT_API_PERS",
       model: process.env.GIGACHAT_MODEL || "GigaChat-2",
       timeoutMs: Number(process.env.GIGACHAT_TIMEOUT_MS || 12000),

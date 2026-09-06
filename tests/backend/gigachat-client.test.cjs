@@ -37,12 +37,21 @@ test('a rejected token is refreshed once and persistent 401 propagates',async()=
   await assert.rejects(()=>h.client.complete([],config),{statusCode:401});
   assert.equal(h.calls.length,4);
 });
-test('timeout, truncated output and non-JSON responses fail closed',async()=>{
+test('unsupported structured format retries once without response_format',async()=>{
+  const h=setup([token(),{status:400,json:{}},{json:completion}]);
+  const result=await h.client.complete([],config,{responseFormat:{type:'json_schema',schema:{type:'object'}}});
+  assert.equal(result,'{"answer":"ok"}');
+  assert.equal(h.calls.length,3);
+  assert.equal(JSON.parse(h.calls[1].body).response_format.type,'json_schema');
+  assert.equal(JSON.parse(h.calls[2].body).response_format,undefined);
+});
+test('timeout, truncated output and flexible JSON parsing fail safely',async()=>{
   const h=setup(['timeout']);
   await assert.rejects(()=>h.client.complete([],config),/gigachat_timeout/);
   const truncated=setup([token(),{json:{choices:[{finish_reason:'length',message:{content:'{"answer":'}}]}}]);
   await assert.rejects(()=>truncated.client.complete([],config),/gigachat_truncated_answer/);
-  assert.equal(h.client.parseObject('prefix {"answer":"ok"}'),null);
+  assert.deepEqual(h.client.parseObject('prefix {"answer":"ok"}'),{answer:'ok'});
+  assert.deepEqual(h.client.parseObject('"{\\"answer\\":\\"ok\\"}"'),{answer:'ok'});
   assert.equal(h.client.parseObject('[]'),null);
   assert.deepEqual(h.client.parseObject('```json\n{"answer":"ok"}\n```'),{answer:'ok'});
 });
