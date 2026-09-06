@@ -33,25 +33,51 @@
           <div><b>История</b></div>
         </div>
         <div class="login-preview-image" aria-hidden="true">
-          <div class="login-preview-top"><span>Лента здоровья</span><b>Результаты обновлены</b></div>
+          <div class="login-preview-top">
+            <span>Лента здоровья</span>
+            <b>Результаты обновлены</b>
+          </div>
           <div class="login-preview-feed" aria-hidden="true">
             <div><span>Глюкоза</span><b>6.2</b><small>обсудить</small></div>
             <div><span>Липидный профиль</span><b>готов</b><small>12 показателей</small></div>
             <div><span>Следующий шаг</span><b>терапевт</b><small>подготовить вопросы</small></div>
           </div>
-          <div class="login-preview-bottom"><div><b>Это не диагноз</b></div><div><b>Смотреть динамику</b></div><div><b>Мой профиль</b></div></div>
+          <div class="login-preview-bottom">
+            <div><b>Это не диагноз</b></div>
+            <div><b>Смотреть динамику</b></div>
+            <div><b>Мой профиль</b></div>
+          </div>
         </div>
       </div>
 
       <form class="login-form" id="loginForm">
         <div class="auth-panel active" id="loginPanel">
-          <div class="auth-heading"><div class="label">Закрытый демо-контур</div><h2>Вход в кабинет</h2><p class="muted">Учётная запись создаётся администратором.</p></div>
-          <label>Логин<input id="loginInput" autocomplete="username" autocapitalize="none" spellcheck="false" required /></label>
-          <label>Пароль<span class="password-field"><input id="passwordInput" type="password" autocomplete="current-password" required /><button class="password-toggle" id="passwordToggle" type="button" aria-label="Показать пароль" aria-pressed="false">Показать</button></span></label>
+          <div class="auth-heading">
+            <div class="label">Закрытый демо-контур</div>
+            <h2>Вход в кабинет</h2>
+            <p class="muted">Учётная запись создаётся администратором.</p>
+          </div>
+
+          <label>Логин
+            <input id="loginInput" autocomplete="username" autocapitalize="none" spellcheck="false" required />
+          </label>
+
+          <label>Пароль
+            <span class="password-field">
+              <input id="passwordInput" type="password" autocomplete="current-password" required />
+              <button class="password-toggle" id="passwordToggle" type="button" aria-label="Показать пароль" aria-pressed="false">Показать</button>
+            </span>
+          </label>
+
           <p class="auth-error" id="loginError" role="status" aria-live="polite" hidden>Не удалось выполнить вход.</p>
+
           <button class="btn primary wide" type="submit">Войти</button>
           <p class="security-note">Доступ предназначен только для тестирования. Реальные данные пациентов не используются.</p>
-          <div class="legal-links"><button type="button" data-legal-modal="privacyModal">Политика конфиденциальности</button><button type="button" data-legal-modal="termsModal">Условия использования</button></div>
+
+          <div class="legal-links">
+            <button type="button" data-legal-modal="privacyModal">Политика конфиденциальности</button>
+            <button type="button" data-legal-modal="termsModal">Условия использования</button>
+          </div>
         </div>
       </form>
     </div>
@@ -59,45 +85,116 @@
 
   <div class="app app-shell hidden" id="appView">
     <aside class="sidebar" id="sidebar" aria-label="Разделы кабинета">
-      <div class="brand"><div class="brand-logo">АЗ</div><div><div class="brand-name">Атлас здоровья</div><div class="brand-caption">закрытый демо-контур</div></div><button class="icon-btn mobile-only sidebar-close" id="closeSidebarBtn" type="button" aria-label="Закрыть меню"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+      <div class="brand">
+        <div class="brand-logo">АЗ</div>
+        <div>
+          <div class="brand-name">Атлас здоровья</div>
+          <div class="brand-caption">закрытый демо-контур</div>
+        </div>
+        <button class="icon-btn mobile-only sidebar-close" id="closeSidebarBtn" type="button" aria-label="Закрыть меню"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+      </div>
+
       <nav class="side-nav" id="sideNav" aria-label="Основная навигация">
-        <a href="#dashboard" data-route="dashboard" data-route-action="dashboard" data-user-only class="nav-link active"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Сегодня</a>
-        <a href="#labs" data-route="labs" data-route-action="labs" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3M8 14h8"/></svg>Анализы</a>
-        <a href="#lab-history" data-route="lab-history" data-route-action="lab-history" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></svg>История</a>
-        <a href="#profile" data-route="profile" data-route-action="profile" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>Профиль</a>
-        <a href="#manual-lab-entry" data-route="manual-lab-entry" data-route-action="manual-lab-entry" data-lab-entry-only class="nav-link" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 3h6M10 3v6L5 18a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18l-5-9V3M8 15h8"/><path d="M12 12v6M9 15h6"/></svg>Ввод результатов</a>
-        <a href="#assistant" data-route="assistant" data-route-action="assistant" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H3l2-5a8.5 8.5 0 1 1 16-3.5Z"/><path d="M8 11h8M8 15h4"/></svg>Помощник</a>
-        <a href="#appointments" data-route="appointments" data-route-action="appointments" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M12 13v5M9.5 15.5h5"/></svg>Записаться</a>
-        <a href="#visits" data-route="visits" data-route-action="visits" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M6 3v2M12 3v2M4 4v5a5 5 0 0 0 10 0V4M9 14v2a5 5 0 0 0 10 0v-3"/><circle cx="19" cy="10" r="3"/></svg>Врачи</a>
-        <a href="#reports" data-route="reports" data-route-action="reports" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Zm0 0v6h6M8 13h8M8 17h5"/></svg>Документы</a>
-        <a href="#admin-users" data-route="admin-users" data-route-action="admin-users" data-admin-only class="nav-link" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M17 13a5 5 0 0 1 4 5v3"/></svg>Пользователи</a>
-        <a href="#integration" data-route="integration" data-route-action="integration" data-admin-only class="nav-link nav-link-tech" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 7h16l-4-4M20 17H4l4 4M4 17l4-4"/></svg>Интеграция</a>
+        <a href="#dashboard" data-route="dashboard" data-route-action="dashboard" data-user-only class="nav-link active"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Сегодня</a>
+        <a href="#labs" data-route="labs" data-route-action="labs" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3M8 14h8"/></svg>Анализы</a>
+        <a href="#lab-history" data-route="lab-history" data-route-action="lab-history" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></svg>История</a>
+        <a href="#profile" data-route="profile" data-route-action="profile" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>Профиль</a>
+        <a href="#manual-lab-entry" data-route="manual-lab-entry" data-route-action="manual-lab-entry" data-lab-entry-only class="nav-link" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6L5 18a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18l-5-9V3M8 15h8"/><path d="M12 12v6M9 15h6"/></svg>Ввод результатов</a>
+        <a href="#assistant" data-route="assistant" data-route-action="assistant" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H3l2-5a8.5 8.5 0 1 1 16-3.5Z"/><path d="M8 11h8M8 15h4"/></svg>Помощник</a>
+        <a href="#appointments" data-route="appointments" data-route-action="appointments" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18M12 13v5M9.5 15.5h5"/></svg>Записаться</a>
+        <a href="#visits" data-route="visits" data-route-action="visits" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M6 3v2M12 3v2M4 4v5a5 5 0 0 0 10 0V4M9 14v2a5 5 0 0 0 10 0v-3"/><circle cx="19" cy="10" r="3"/></svg>Врачи</a>
+        <a href="#reports" data-route="reports" data-route-action="reports" data-user-only class="nav-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6Zm0 0v6h6M8 13h8M8 17h5"/></svg>Документы</a>
+        <a href="#admin-users" data-route="admin-users" data-route-action="admin-users" data-admin-only class="nav-link" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M17 13a5 5 0 0 1 4 5v3"/></svg>Пользователи</a>
+        <a href="#integration" data-route="integration" data-route-action="integration" data-admin-only class="nav-link nav-link-tech" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16l-4-4M20 17H4l4 4M4 17l4-4"/></svg>Интеграция</a>
       </nav>
-      <div class="side-card"><div class="label">Статус</div><div class="sync-row"><i></i><b id="syncStatusText">Кабинет готов</b></div><small id="syncTime">Данные закрытого демо-контура.</small></div>
+
+      <div class="side-card">
+        <div class="label">Статус</div>
+        <div class="sync-row"><i></i><b id="syncStatusText">Кабинет готов</b></div>
+        <small id="syncTime">Данные закрытого демо-контура.</small>
+      </div>
     </aside>
     <button class="nav-overlay" id="navOverlay" type="button" tabindex="-1" aria-label="Закрыть меню" hidden></button>
+
     <main class="workspace">
-      <header class="topbar app-header"><button class="icon-btn mobile-only" id="menuBtn" type="button" aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div class="topbar-title"><div class="label" id="routeCaption">Главная</div><h1 id="routeTitle">Личный кабинет пациента</h1></div><div class="top-actions"><button class="avatar" id="avatarMenuBtn" type="button" aria-label="Меню учётной записи" aria-controls="profileMenu" aria-expanded="false">АЗ</button><div class="profile-menu" id="profileMenu" hidden><div class="muted" id="profileMenuUser"></div><button type="button" data-route-action="profile" data-user-only>Профиль</button><button type="button" id="logoutBtn">Выйти</button></div></div></header>
+      <header class="topbar app-header">
+        <button class="icon-btn mobile-only" id="menuBtn" type="button" aria-label="Открыть меню" aria-controls="sidebar" aria-expanded="false"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <div class="topbar-title">
+          <div class="label" id="routeCaption">Главная</div>
+          <h1 id="routeTitle">Личный кабинет пациента</h1>
+        </div>
+        <div class="top-actions">
+          <button class="avatar" id="avatarMenuBtn" type="button" aria-label="Меню учётной записи" aria-controls="profileMenu" aria-expanded="false">АЗ</button>
+          <div class="profile-menu" id="profileMenu" hidden>
+            <div class="muted" id="profileMenuUser"></div>
+            <button type="button" data-route-action="profile" data-user-only>Профиль</button>
+            <button type="button" id="logoutBtn">Выйти</button>
+          </div>
+        </div>
+      </header>
+
       <div id="pageRoot" class="page-root" tabindex="-1"></div>
     </main>
   </div>
 
   <nav class="bottom-nav mobile-nav" id="bottomNav" aria-label="Быстрые действия" style="display:none">
-    <a href="#dashboard" data-route="dashboard" data-route-action="dashboard" class="bottom-link active"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><small>Сегодня</small></a>
-    <a href="#labs" data-route="labs" data-route-action="labs" class="bottom-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3M8 14h8"/></svg><small>Анализы</small></a>
-    <a href="#lab-history" data-route="lab-history" data-route-action="lab-history" class="bottom-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></svg><small>История</small></a>
-    <a href="#manual-lab-entry" data-route="manual-lab-entry" data-route-action="manual-lab-entry" data-lab-entry-only class="bottom-link" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M9 3h6M10 3v6L5 18a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18l-5-9V3M8 15h8"/><path d="M12 12v6M9 15h6"/></svg><small>Внести</small></a>
+    <a href="#dashboard" data-route="dashboard" data-route-action="dashboard" class="bottom-link active"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><small>Сегодня</small></a>
+    <a href="#labs" data-route="labs" data-route-action="labs" class="bottom-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6L4 19a1 1 0 0 0 1 2h14a1 1 0 0 0 1-2L14 9V3M8 14h8"/></svg><small>Анализы</small></a>
+    <a href="#lab-history" data-route="lab-history" data-route-action="lab-history" class="bottom-link"><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l3 2"/></svg><small>История</small></a>
+    <a href="#manual-lab-entry" data-route="manual-lab-entry" data-route-action="manual-lab-entry" data-lab-entry-only class="bottom-link" hidden><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 3h6M10 3v6L5 18a2 2 0 0 0 1.7 3h10.6A2 2 0 0 0 19 18l-5-9V3M8 15h8"/><path d="M12 12v6M9 15h6"/></svg><small>Внести</small></a>
   </nav>
 
   <div class="modal-backdrop" id="modalBackdrop"></div>
-  <section class="modal legal-modal" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle" tabindex="-1"><div class="modal-head"><h3 id="privacyModalTitle">Политика конфиденциальности</h3><button class="icon-btn" type="button" aria-label="Закрыть окно" data-close-modal>×</button></div><p class="muted">В закрытом демонстрационном контуре используются только синтетические данные.</p></section>
-  <section class="modal legal-modal" id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsModalTitle" tabindex="-1"><div class="modal-head"><h3 id="termsModalTitle">Условия использования</h3><button class="icon-btn" type="button" aria-label="Закрыть окно" data-close-modal>×</button></div><p class="muted">Система предназначена для демонстрации и тестирования. Пояснения в кабинете не заменяют консультацию врача.</p></section>
-  <section class="modal" id="passwordChangeModal" role="dialog" aria-modal="true" aria-labelledby="passwordChangeTitle" aria-describedby="passwordChangeDescription" data-dismissible="false" tabindex="-1"><div class="modal-head"><h3 id="passwordChangeTitle">Смените временный пароль</h3></div><form id="passwordChangeForm" class="form-stack"><p class="muted" id="passwordChangeDescription">Перед первым использованием кабинета задайте собственный пароль.</p><label>Текущий временный пароль<input id="currentPasswordInput" type="password" autocomplete="current-password" required /></label><label>Новый пароль<input id="newPasswordInput" type="password" autocomplete="new-password" minlength="10" aria-describedby="passwordRequirements" required /><small id="passwordRequirements">Не менее 10 символов.</small></label><label>Повторите новый пароль<input id="newPasswordConfirmInput" type="password" autocomplete="new-password" minlength="10" required /></label><p class="auth-error" id="passwordChangeError" role="alert" hidden>Не удалось изменить пароль.</p><button class="btn primary wide" type="submit">Сохранить новый пароль</button></form></section>
-  <section class="modal" id="bookingModal" role="dialog" aria-modal="true" aria-labelledby="bookingModalTitle" tabindex="-1"><div class="modal-head"><h3 id="bookingModalTitle">Запись создана</h3><button class="icon-btn" type="button" aria-label="Закрыть окно" data-close-modal>×</button></div><div id="bookingResult"></div><button class="btn primary wide" id="goVisitsBtn">Перейти в приемы</button></section>
+
+  <section class="modal legal-modal" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyModalTitle" tabindex="-1">
+    <div class="modal-head">
+      <h3 id="privacyModalTitle">Политика конфиденциальности</h3>
+      <button class="icon-btn" type="button" aria-label="Закрыть окно" data-close-modal><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    </div>
+    <p class="muted">В закрытом демонстрационном контуре используются только синтетические данные.</p>
+  </section>
+
+  <section class="modal legal-modal" id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsModalTitle" tabindex="-1">
+    <div class="modal-head">
+      <h3 id="termsModalTitle">Условия использования</h3>
+      <button class="icon-btn" type="button" aria-label="Закрыть окно" data-close-modal><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    </div>
+    <p class="muted">Система предназначена для демонстрации и тестирования. Пояснения в кабинете не заменяют консультацию врача.</p>
+  </section>
+
+  <section class="modal" id="passwordChangeModal" role="dialog" aria-modal="true" aria-labelledby="passwordChangeTitle" aria-describedby="passwordChangeDescription" data-dismissible="false" tabindex="-1">
+    <div class="modal-head">
+      <h3 id="passwordChangeTitle">Смените временный пароль</h3>
+    </div>
+    <form id="passwordChangeForm" class="form-stack">
+      <p class="muted" id="passwordChangeDescription">Перед первым использованием кабинета задайте собственный пароль.</p>
+      <label>Текущий временный пароль
+        <input id="currentPasswordInput" type="password" autocomplete="current-password" required />
+      </label>
+      <label>Новый пароль
+        <input id="newPasswordInput" type="password" autocomplete="new-password" minlength="10" aria-describedby="passwordRequirements" required />
+        <small id="passwordRequirements">Не менее 10 символов.</small>
+      </label>
+      <label>Повторите новый пароль
+        <input id="newPasswordConfirmInput" type="password" autocomplete="new-password" minlength="10" required />
+      </label>
+      <p class="auth-error" id="passwordChangeError" role="alert" hidden>Не удалось изменить пароль.</p>
+      <button class="btn primary wide" type="submit">Сохранить новый пароль</button>
+    </form>
+  </section>
+
+  <section class="modal" id="bookingModal" role="dialog" aria-modal="true" aria-labelledby="bookingModalTitle" tabindex="-1">
+    <div class="modal-head">
+      <h3 id="bookingModalTitle">Запись создана</h3>
+      <button class="icon-btn" type="button" aria-label="Закрыть окно" data-close-modal><svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div id="bookingResult"></div>
+    <button class="btn primary wide" id="goVisitsBtn">Перейти в приемы</button>
+  </section>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-  <script src="./js/core/api-client.js?v=passkeys-1"></script>
-  <script src="./js/passkeys-ui.js?v=passkeys-1"></script>
+  <script src="./js/core/api-client.js?v=calm-cabinet-1"></script>
   <script src="./components/ui.js?v=calm-cabinet-1"></script>
   <script src="./components/cabinet.js?v=calm-cabinet-1"></script>
   <script src="./components/search-picker.js?v=calm-cabinet-1"></script>
@@ -108,11 +205,39 @@
   <script src="./pages/documents.js?v=calm-cabinet-1"></script>
   <script src="./pages/assistant.js?v=calm-cabinet-1"></script>
   <script src="./pages/admin.js?v=calm-cabinet-1"></script>
-  <script src="./pages/profile-edit.js?v=passkeys-1"></script>
+  <script src="./pages/profile-edit.js?v=calm-cabinet-1"></script>
   <script src="./pages/user-admin.js?v=calm-cabinet-1"></script>
   <script src="./pages/manual-lab-entry.js?v=calm-cabinet-1"></script>
-  <script>(()=>{const originalSetRouteTitle=UI.setRouteTitle;UI.setRouteTitle=(route)=>{if(route==="manual-lab-entry"){document.getElementById("routeCaption").textContent="Лаборатория";document.getElementById("routeTitle").textContent="Ручной ввод результатов";return;}originalSetRouteTitle(route);};})();</script>
+  <script>
+    (() => {
+      const originalSetRouteTitle = UI.setRouteTitle;
+      UI.setRouteTitle = (route) => {
+        if (route === "manual-lab-entry") {
+          document.getElementById("routeCaption").textContent = "Лаборатория";
+          document.getElementById("routeTitle").textContent = "Ручной ввод результатов";
+          return;
+        }
+        originalSetRouteTitle(route);
+      };
+    })();
+  </script>
   <script src="./js/core/app.js?v=calm-cabinet-1"></script>
-  <script>(()=>{const input=document.getElementById("passwordInput");const button=document.getElementById("passwordToggle");if(!input||!button)return;button.addEventListener("click",()=>{const isVisible=input.type==="text";input.type=isVisible?"password":"text";button.textContent=isVisible?"Показать":"Скрыть";button.setAttribute("aria-label",isVisible?"Показать пароль":"Скрыть пароль");button.setAttribute("aria-pressed",String(!isVisible));input.focus({preventScroll:true});input.setSelectionRange(input.value.length,input.value.length);});})();</script>
+  <script>
+    (() => {
+      const input = document.getElementById("passwordInput");
+      const button = document.getElementById("passwordToggle");
+      if (!input || !button) return;
+
+      button.addEventListener("click", () => {
+        const isVisible = input.type === "text";
+        input.type = isVisible ? "password" : "text";
+        button.textContent = isVisible ? "Показать" : "Скрыть";
+        button.setAttribute("aria-label", isVisible ? "Показать пароль" : "Скрыть пароль");
+        button.setAttribute("aria-pressed", String(!isVisible));
+        input.focus({ preventScroll: true });
+        input.setSelectionRange(input.value.length, input.value.length);
+      });
+    })();
+  </script>
 </body>
 </html>
