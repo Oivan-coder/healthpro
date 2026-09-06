@@ -18,10 +18,10 @@ const ASSISTANT_MODES = {
   },
   result_explanation: {
     title: "Разбор результата",
-    subtitle: "Пояснение выбранного показателя",
-    placeholder: "Задайте вопрос по анализам или подготовке к приёму...",
-    emptyTitle: "Выберите показатель или задайте вопрос",
-    emptyText: "Этот режим разбирает только выбранный результат и показывает основание ответа."
+    subtitle: "Пояснение показателя",
+    placeholder: "Спросите про любой анализ или показатель...",
+    emptyTitle: "Спросите про показатель",
+    emptyText: "Назовите показатель своими словами — ассистент сам найдёт его в данных пациента."
   },
   doctor_questions: {
     title: "Вопросы врачу",
@@ -38,11 +38,6 @@ function assistantEscape(value) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
-}
-
-function assistantValueText(context) {
-  if (!context?.test_name) return "результат не выбран";
-  return `${context.test_name} ${context.value ?? ""} ${context.unit || ""}`.replace(/\s+/g, " ").trim();
 }
 
 function assistantPatientDataText(patientData) {
@@ -80,37 +75,11 @@ function assistantStatusShort(flag) {
   return "требует внимания";
 }
 
-function assistantStatusBadge(flag) {
-  if (flag === "high") return "выше";
-  if (flag === "low") return "ниже";
-  if (flag === "normal") return "";
-  return "внимание";
-}
-
-function assistantTrendValues(lab) {
-  const history = Array.isArray(lab?.history) ? lab.history : [];
-  const values = history.slice(-3).map(row => row.value);
-  if (!values.length && lab?.latestValue !== undefined) values.push(lab.latestValue);
-  return values;
-}
-
 function assistantFullTrendValues(lab) {
   const history = Array.isArray(lab?.history) ? lab.history : [];
   const values = history.map(row => row.value);
   if (!values.length && lab?.latestValue !== undefined) values.push(lab.latestValue);
   return values;
-}
-
-function assistantMiniTrend(lab) {
-  const values = assistantTrendValues(lab);
-  if (!values.length) return "";
-  const line = values.map(value => assistantEscape(value)).join(" → ");
-  return `
-    <div class="assistant-mini-trend">
-      <span>${line}</span>
-      ${lab?.unit ? `<small>${assistantEscape(lab.unit)}</small>` : ""}
-    </div>
-  `;
 }
 
 function bindAssistantWheelBridge() {
@@ -120,117 +89,47 @@ function bindAssistantWheelBridge() {
 
   chatCard.onwheel = (event) => {
     const target = event.target;
-    const interactive = target.closest?.(
-      "input, textarea, select, button, summary, a, [contenteditable='true'], .assistant-indicator-popover, .assistant-indicator-list"
-    );
+    const interactive = target.closest?.("input, textarea, select, button, summary, a, [contenteditable='true']");
     if (interactive) return;
     if (!chatCard.contains(target)) return;
 
     const before = messages.scrollTop;
     messages.scrollTop += event.deltaY;
-
-    if (messages.scrollTop !== before) {
-      event.preventDefault();
-    }
+    if (messages.scrollTop !== before) event.preventDefault();
   };
 }
 
-function assistantContextFromLab(lab) {
-  if (!lab) return null;
-  return {
-    test_code: lab.code,
-    test_name: lab.name,
-    value: lab.latestValue,
-    unit: lab.unit,
-    flag: lab.flag,
-    report_date: lab.latestDate,
-    history: Array.isArray(lab.history)
-      ? lab.history.map(row => ({
-        date: row.date,
-        value: row.value,
-        flag: row.flag
-      }))
-      : []
-  };
-}
-
-function assistantHistoryPrompt(context) {
-  if (!context?.test_name || !Array.isArray(context.history) || !context.history.length) return "";
-  const history = context.history
-    .map(row => `${row.date}: ${row.value} ${context.unit || ""} (${assistantStatusShort(row.flag || context.flag)})`)
-    .join("; ");
-  return [
-    "Контекст выбранного показателя из Атласа здоровья:",
-    `Показатель: ${context.test_name}.`,
-    `История значений: ${history}.`,
-    "Отвечай по всей переданной динамике, а не только по последнему значению."
-  ].join("\n");
-}
-
-function assistantLabSearchText(lab) {
-  return `${lab.name || ""} ${lab.group || ""} ${lab.code || ""} ${lab.unit || ""}`.toLowerCase();
-}
-
-function buildAssistantSummary(summary, selectedLab) {
+function buildAssistantSummary(summary) {
   const abnormal = summary.abnormal || [];
   const latestDate = assistantLatestDate(summary.labs || []);
   const focusNames = abnormal.slice(0, 3).map(lab => lab.name).join(", ");
-  if (selectedLab) {
-    const fullTrend = assistantFullTrendValues(selectedLab);
-    return [
-      `${selectedLab.name}: последнее значение ${selectedLab.latestValue} ${selectedLab.unit || ""}, ${assistantStatusShort(selectedLab.flag)}.`,
-      selectedLab.history?.length > 1 ? `В динамике доступно ${selectedLab.history.length} значений: ${fullTrend.join(" → ")} ${selectedLab.unit || ""}.` : "Динамика появится после нескольких результатов.",
-      "Это не диагноз: для интерпретации важны подготовка к анализу, лекарства, жалобы и цель консультации."
-    ];
-  }
   if (abnormal.length) {
     return [
       `В последних анализах ${UI.attentionText(abnormal.length).toLowerCase()}.`,
       focusNames ? `В зоне внимания: ${focusNames}.` : "Есть показатели выше или ниже обычного диапазона.",
-      `Последние результаты датированы ${latestDate}; для интерпретации могут потребоваться жалобы, лекарства и условия сдачи анализа.`,
-      "Это не диагноз, а подготовка к разговору с врачом."
+      `Последние результаты датированы ${latestDate}; для интерпретации могут потребоваться жалобы, лекарства и условия сдачи анализа.`
     ];
   }
   return [
     "Последние значения выглядят спокойно по подключенным референсам.",
-    `Последние результаты датированы ${latestDate}; полезно смотреть не только одно значение, но и динамику.`,
-    "Это не диагноз, а подготовка к консультации."
+    `Последние результаты датированы ${latestDate}; полезно смотреть не только одно значение, но и динамику.`
   ];
 }
 
-function renderWelcomeMessage(summary, selectedLab) {
+function renderWelcomeMessage(summary) {
   const patientName = UI.firstName(summary.patient);
   return `
     <article class="assistant-message assistant assistant-welcome">
       <div class="assistant-message-label">Атлас</div>
       <div class="assistant-message-text">
-        <p>Здравствуйте, ${assistantEscape(patientName)}. Я помогу подготовиться к консультации и разобраться в результатах анализов.</p>
-        <p>Могу показать динамику показателей, подсветить изменения и помочь подготовить вопросы врачу.</p>
+        <p>Здравствуйте, ${assistantEscape(patientName)}. Можете спросить про любой анализ своими словами — нужный контекст я найду сам.</p>
       </div>
     </article>
     <article class="assistant-message assistant assistant-pre-summary">
       <div class="assistant-message-label">Краткая сводка</div>
       <div class="assistant-summary-lines">
-        ${buildAssistantSummary(summary, selectedLab).map(line => `<p>${assistantEscape(line)}</p>`).join("")}
+        ${buildAssistantSummary(summary).map(line => `<p>${assistantEscape(line)}</p>`).join("")}
       </div>
-    </article>
-  `;
-}
-
-function renderSelectedLabContext(selectedLab, context) {
-  if (!selectedLab && !context?.test_name) return "";
-  const name = selectedLab?.name || context.test_name;
-  const value = selectedLab?.latestValue ?? context.value ?? "";
-  const unit = selectedLab?.unit || context.unit || "";
-  const flag = selectedLab?.flag || context.flag;
-  return `
-    <article class="assistant-context-card">
-      <div>
-        <span class="label">Разбираем показатель</span>
-        <h3>${assistantEscape(name)} ${assistantEscape(value)} ${assistantEscape(unit)}</h3>
-        <p class="muted">${assistantEscape(assistantStatusShort(flag))}${selectedLab?.latestDate ? ` · ${assistantEscape(selectedLab.latestDate)}` : ""}</p>
-      </div>
-      ${assistantMiniTrend(selectedLab)}
     </article>
   `;
 }
@@ -287,20 +186,18 @@ function renderAssistantBasis(basis) {
         <b>${assistantEscape(basis.sourceLabel || "Данные Атласа")}</b>
       </summary>
       <div class="basis-grid">
-        <div><span>Сценарий</span><b>${assistantEscape(basis.chainLabel || "Демо-сценарий Атласа здоровья")}</b></div>
+        <div><span>Сценарий</span><b>${assistantEscape(basis.chainLabel || "Сценарий Атласа здоровья")}</b></div>
         <div><span>Показатель</span><b>${assistantEscape(basis.indicator || "не выбран")}</b></div>
         <div><span>Данные пациента</span><b>${assistantEscape(assistantPatientDataText(basis.patientData))}</b></div>
-        <div><span>Источник</span><b>${assistantEscape(basis.sourceLabel || "Демо-база знаний Атласа здоровья")}</b></div>
-        <div class="basis-wide"><span>Статус</span><b>${assistantEscape(basis.validationStatus || "Демо-логика, требует врачебной валидации")}</b></div>
+        <div><span>Источник</span><b>${assistantEscape(basis.sourceLabel || "Данные Атласа здоровья")}</b></div>
+        <div class="basis-wide"><span>Статус</span><b>${assistantEscape(basis.validationStatus || "Справочная логика; диагноз и назначения не формируются")}</b></div>
       </div>
     </details>
   `;
 }
 
-function renderAssistantMessages(summary, selectedLab) {
-  const messages = AssistantState.messages;
-  const intro = renderWelcomeMessage(summary, selectedLab) + renderSelectedLabContext(selectedLab, AssistantState.context);
-  const renderedMessages = messages.map(item => `
+function renderAssistantMessages(summary) {
+  const renderedMessages = AssistantState.messages.map(item => `
     <article class="assistant-message ${item.role}">
       <div class="assistant-message-label">${item.role === "assistant" ? "Атлас" : "Вы"}</div>
       ${item.role === "assistant" ? `<div class="assistant-provider-note">${item.provider === "gigachat" ? "GigaChat подключен" : "Demo-safe режим"}${item.safetyGuardApplied ? " · проверено правилами" : ""}${item.providerStatus === "fallback" ? " · безопасный fallback" : ""}</div>` : ""}
@@ -312,49 +209,47 @@ function renderAssistantMessages(summary, selectedLab) {
   if (AssistantState.pending) {
     renderedMessages.push(`
       <article class="assistant-message assistant pending">
-        <div class="assistant-provider-note">Готовлю безопасный ответ</div>
+        <div class="assistant-provider-note">Готовлю ответ</div>
         <div class="typing-dots"><span></span><span></span><span></span></div>
       </article>
     `);
   }
-  return intro + renderedMessages.join("");
+  return renderWelcomeMessage(summary) + renderedMessages.join("");
 }
 
-function quickQuestionsForContext(selectedLab) {
-  if (selectedLab) {
+function quickQuestionsForContext(context) {
+  if (context?.test_name) {
     return [
-      ["Что влияет на показатель?", `Что влияет на ${selectedLab.name}?`, "result_explanation"],
-      ["Какие показатели связаны?", "Какие показатели связаны с выбранным результатом?", "result_explanation"],
-      ["Что обсудить с врачом?", "Какие вопросы подготовить врачу по этому показателю?", "doctor_questions"],
-      ["Какие данные уточнить?", "Какие данные стоит уточнить для интерпретации?", "doctor_questions"]
+      ["Что значит результат?", `Что значит мой ${context.test_name}?`, "result_explanation"],
+      ["Что с ним связано?", "Какие показатели связаны с этим результатом?", "result_explanation"],
+      ["Что обсудить с врачом?", "Что по этому результату стоит обсудить с врачом?", "doctor_questions"]
     ];
   }
   return [
     ["Короткая сводка", "Собери короткую сводку по пациенту для врача", "patient_summary"],
     ["Что требует внимания?", "Какие результаты требуют внимания перед приемом?", "patient_summary"],
-    ["Вопросы врачу", "Какие вопросы подготовить врачу?", "doctor_questions"],
-    ["Чего не хватает?", "Каких данных не хватает для полноценной интерпретации?", "doctor_questions"]
+    ["Вопросы врачу", "Какие вопросы подготовить врачу?", "doctor_questions"]
   ];
 }
 
+function rerenderAssistantPreservingScroll() {
+  window.__assistantRestoreScrollY = window.scrollY;
+  window.App.render();
+}
+
 window.Pages.assistant = async function renderAssistant() {
+  const restoreScrollY = Number.isFinite(Number(window.__assistantRestoreScrollY))
+    ? Number(window.__assistantRestoreScrollY)
+    : null;
+  window.__assistantRestoreScrollY = null;
+
   const summary = await HealthAPI.getSummary();
   document.querySelectorAll(".nav-link").forEach(x => x.classList.toggle("active", x.dataset.route === "assistant"));
   document.querySelectorAll(".bottom-link").forEach(x => x.classList.toggle("active", x.dataset.route === "assistant"));
   const context = AssistantState.context;
-  const selectedLab = context?.test_code
-    ? (summary.labs || []).find(lab => lab.code === context.test_code)
-    : null;
   const modeInfo = ASSISTANT_MODES[AssistantState.mode || "patient_summary"] || ASSISTANT_MODES.patient_summary;
-  const quickQuestions = quickQuestionsForContext(selectedLab);
+  const quickQuestions = quickQuestionsForContext(context);
   const hasDraft = Boolean(String(AssistantState.draft || "").trim());
-  const selectableLabs = [...(summary.labs || [])]
-    .filter(lab => lab.code && Array.isArray(lab.history) && lab.history.length)
-    .sort((a, b) => {
-      const abnormalDelta = Number(b.flag !== "normal") - Number(a.flag !== "normal");
-      if (abnormalDelta) return abnormalDelta;
-      return (a.group || "").localeCompare(b.group || "", "ru") || a.name.localeCompare(b.name, "ru");
-    });
   const chronic = summary.patient?.chronicConditions || summary.patient?.conditions || [];
 
   UI.root().innerHTML = `
@@ -362,10 +257,10 @@ window.Pages.assistant = async function renderAssistant() {
       <header class="assistant-hero">
         <div>
           <h2>Ассистент подготовки к приёму</h2>
-          <p class="muted">Помогаю разобраться в анализах, заметить важные изменения и подготовить вопросы врачу.</p>
+          <p class="muted">Спросите про анализы обычными словами — ассистент сам определит нужный показатель или группу.</p>
         </div>
         <div class="assistant-safe-wrap">
-          <button class="assistant-safe-pill" type="button" title="Ответы ограничены данными пациента и согласованными медицинскими сценариями.">
+          <button class="assistant-safe-pill" type="button" title="Медицинские ответы ограничены данными пациента и подключенной доказательной базой.">
             <span class="assistant-live-dot"></span>
             AI-safe режим
           </button>
@@ -377,14 +272,14 @@ window.Pages.assistant = async function renderAssistant() {
           <div class="assistant-chat-card ${hasDraft ? "is-composing" : ""} ${AssistantState.pending ? "is-pending" : ""}">
             <div class="assistant-chat-head">
               <div>
-                <div class="label">Диалог подготовки</div>
-                <h3>Контекст пациента уже подключен</h3>
+                <div class="label">Диалог</div>
+                <h3>Данные пациента подключены автоматически</h3>
               </div>
               <button class="btn ghost small" id="assistantClear">Очистить</button>
             </div>
 
             <div class="assistant-messages" id="assistantMessages">
-              ${renderAssistantMessages(summary, selectedLab)}
+              ${renderAssistantMessages(summary)}
             </div>
 
             <div class="assistant-quick">
@@ -395,7 +290,6 @@ window.Pages.assistant = async function renderAssistant() {
               <details class="assistant-add-menu">
                 <summary title="Добавить контекст">+</summary>
                 <div class="assistant-add-list">
-                  <button type="button" data-route-action="labs" data-lab-mode="tests">Выбрать показатель</button>
                   <button type="button" data-assistant-insert="Опишу жалобы: ">Добавить жалобы</button>
                   <button type="button" data-assistant-insert="Лекарства и добавки: ">Добавить лекарства</button>
                   <button type="button" data-route-action="reports">Добавить документ</button>
@@ -408,52 +302,6 @@ window.Pages.assistant = async function renderAssistant() {
         </div>
 
         <aside class="assistant-side">
-          <section class="assistant-side-card assistant-picker-card">
-            <div class="assistant-side-head">
-              <div>
-                <div class="label">Показатель для разбора</div>
-                <p class="muted">${selectedLab
-                  ? "Ассистент получает всю историю выбранного показателя."
-                  : "Выберите один показатель из всех анализов пациента."}</p>
-              </div>
-            </div>
-            <div class="assistant-picker-shell">
-              <button type="button" class="assistant-picker-button" id="assistantPickerButton" ${selectableLabs.length ? "" : "disabled"} aria-expanded="false" aria-controls="assistantIndicatorPopover">
-                <span>
-                  <b>${selectedLab ? assistantEscape(selectedLab.name) : selectableLabs.length ? "Выбрать показатель" : "Нет показателей для разбора"}</b>
-                  <small>${selectedLab ? `${assistantEscape(selectedLab.latestValue)} ${assistantEscape(selectedLab.unit || "")} · ${assistantEscape(selectedLab.group || "Показатель")}` : selectableLabs.length ? "из всех анализов пациента" : "данные пока не подключены"}</small>
-                </span>
-                ${selectableLabs.length ? `<em>${selectableLabs.length}</em>` : ""}
-              </button>
-              <div class="assistant-picker-backdrop" id="assistantPickerBackdrop" hidden></div>
-              <div class="assistant-indicator-popover" id="assistantIndicatorPopover" hidden>
-                <div class="assistant-popover-head">
-                  <div>
-                    <b>Выбрать показатель</b>
-                    <small>${selectableLabs.length} ${selectableLabs.length === 1 ? "показатель" : "показателей"}</small>
-                  </div>
-                  <button type="button" class="icon-btn assistant-popover-close" id="assistantPickerClose" aria-label="Закрыть">×</button>
-                </div>
-                <input class="assistant-picker-search" id="assistantIndicatorSearch" placeholder="Найти показатель" autocomplete="off">
-                <div class="assistant-indicator-list" id="assistantIndicatorList">
-                  ${selectableLabs.map(lab => `
-                    <button type="button" class="assistant-indicator-row ${selectedLab?.code === lab.code ? "active" : ""}" data-assistant-select-lab-code="${assistantEscape(lab.code)}" data-assistant-picker-item data-assistant-picker-search="${assistantEscape(assistantLabSearchText(lab))}">
-                      <span>
-                        <b>${assistantEscape(lab.name)}</b>
-                        <small>${assistantEscape(lab.group || "Показатель")} · ${assistantEscape(lab.history.length)} знач.</small>
-                      </span>
-                      <strong>${assistantEscape(lab.latestValue)} ${assistantEscape(lab.unit || "")}</strong>
-                      ${assistantStatusBadge(lab.flag) ? `<em class="${UI.statusClass(lab.flag)}">${assistantEscape(assistantStatusBadge(lab.flag))}</em>` : ""}
-                    </button>
-                  `).join("")}
-                  <p class="muted assistant-picker-empty" id="assistantPickerEmpty" hidden>Ничего не найдено.</p>
-                </div>
-              </div>
-            </div>
-            ${selectedLab ? `<div class="assistant-selected-note">${selectedLab.history?.length || 0} значений в динамике · последнее ${assistantEscape(selectedLab.latestDate || "без даты")}</div>` : ""}
-            ${selectedLab ? `<button class="btn ghost small assistant-reset-context" id="assistantResetContext">Сбросить показатель</button>` : ""}
-          </section>
-
           <section class="assistant-side-card">
             <div class="label">Контекст пациента</div>
             <div class="assistant-patient-grid">
@@ -465,8 +313,8 @@ window.Pages.assistant = async function renderAssistant() {
           </section>
 
           <section class="assistant-side-card assistant-privacy">
-            <b>Ваши данные защищены</b>
-            <p class="muted">Ассистент использует только данные пациента и согласованные сценарии.</p>
+            <b>Контекст определяется автоматически</b>
+            <p class="muted">Если вы назовёте другой показатель, группу анализов или тему, ассистент переключится сам.</p>
           </section>
         </aside>
       </section>
@@ -476,19 +324,26 @@ window.Pages.assistant = async function renderAssistant() {
   async function sendQuestion(text, modeOverride) {
     const question = String(text || "").trim();
     if (!question || AssistantState.pending) return;
-    const requestMode = modeOverride || AssistantState.mode || (AssistantState.context ? "result_explanation" : "patient_summary");
+    const requestMode = modeOverride || AssistantState.mode || "assistant_chat";
     AssistantState.mode = requestMode;
     AssistantState.draft = "";
     AssistantState.messages.push({ role: "user", text: question });
     AssistantState.pending = true;
-    window.App.render();
+    rerenderAssistantPreservingScroll();
     try {
       const response = await HealthAPI.assistantChat({ message: question, mode: requestMode, context: AssistantState.context });
       AssistantState.pending = false;
-      if (response.resolvedContext?.test_name) {
+
+      if (response.contextAction === "clear") {
+        AssistantState.context = null;
+        if (response.mode) AssistantState.mode = response.mode;
+      } else if (response.resolvedContext?.test_name) {
         AssistantState.context = response.resolvedContext;
         AssistantState.mode = "result_explanation";
+      } else if (response.mode) {
+        AssistantState.mode = response.mode;
       }
+
       AssistantState.messages.push({
         role: "assistant",
         text: response.answer,
@@ -502,94 +357,22 @@ window.Pages.assistant = async function renderAssistant() {
       AssistantState.pending = false;
       AssistantState.messages.push({
         role: "assistant",
-        text: "Ассистент временно недоступен. Медицинские данные не отправлялись во внешние сервисы.",
+        text: "Ассистент временно недоступен.",
         basis: {
           chainLabel: "Локальная ошибка",
-          indicator: context?.test_name || null,
+          indicator: AssistantState.context?.test_name || null,
           patientData: null,
-          sourceLabel: "Демо-база знаний Атласа здоровья",
-          validationStatus: "Демо-логика, требует врачебной валидации"
+          sourceLabel: "Данные Атласа здоровья",
+          validationStatus: "Ответ не сформирован"
         }
       });
     }
-    window.App.render();
+    rerenderAssistantPreservingScroll();
   }
 
   const assistantInput = document.getElementById("assistantInput");
   const assistantChatCard = document.querySelector(".assistant-chat-card");
   bindAssistantWheelBridge();
-  const pickerButton = document.getElementById("assistantPickerButton");
-  const pickerPopover = document.getElementById("assistantIndicatorPopover");
-  const pickerBackdrop = document.getElementById("assistantPickerBackdrop");
-  const pickerSearch = document.getElementById("assistantIndicatorSearch");
-  const pickerClose = document.getElementById("assistantPickerClose");
-  const pickerEmpty = document.getElementById("assistantPickerEmpty");
-  const pickerShell = document.querySelector(".assistant-picker-shell");
-  const pickerList = document.getElementById("assistantIndicatorList");
-
-  if (window.__assistantPickerOutsideHandler) {
-    document.removeEventListener("click", window.__assistantPickerOutsideHandler);
-  }
-  if (window.__assistantPickerKeyHandler) {
-    document.removeEventListener("keydown", window.__assistantPickerKeyHandler);
-  }
-
-  const closePicker = () => {
-    if (!pickerPopover) return;
-    pickerPopover.hidden = true;
-    if (pickerBackdrop) pickerBackdrop.hidden = true;
-    if (pickerButton) pickerButton.setAttribute("aria-expanded", "false");
-    document.body.classList.remove("assistant-picker-open");
-  };
-
-  const openPicker = () => {
-    if (!pickerPopover || !pickerButton || pickerButton.disabled) return;
-    pickerPopover.hidden = false;
-    if (pickerBackdrop) pickerBackdrop.hidden = false;
-    pickerButton.setAttribute("aria-expanded", "true");
-    document.body.classList.add("assistant-picker-open");
-    if (pickerSearch) {
-      pickerSearch.value = "";
-      pickerSearch.dispatchEvent(new Event("input"));
-      requestAnimationFrame(() => pickerSearch.focus());
-    }
-  };
-
-  const togglePicker = () => {
-    if (!pickerPopover || pickerPopover.hidden) {
-      openPicker();
-    } else {
-      closePicker();
-    }
-  };
-
-  if (pickerButton) pickerButton.onclick = togglePicker;
-  if (pickerClose) pickerClose.onclick = closePicker;
-  if (pickerBackdrop) pickerBackdrop.onclick = closePicker;
-
-  if (pickerSearch) {
-    pickerSearch.oninput = () => {
-      const query = pickerSearch.value.trim().toLowerCase();
-      let visibleCount = 0;
-      document.querySelectorAll("[data-assistant-picker-item]").forEach(item => {
-        const matches = !query || String(item.dataset.assistantPickerSearch || "").includes(query);
-        item.hidden = !matches;
-        if (matches) visibleCount += 1;
-      });
-      if (pickerEmpty) pickerEmpty.hidden = visibleCount > 0;
-    };
-  }
-
-  window.__assistantPickerOutsideHandler = (event) => {
-    if (!pickerPopover || pickerPopover.hidden) return;
-    if (pickerShell && pickerShell.contains(event.target)) return;
-    closePicker();
-  };
-  window.__assistantPickerKeyHandler = (event) => {
-    if (event.key === "Escape") closePicker();
-  };
-  document.addEventListener("click", window.__assistantPickerOutsideHandler);
-  document.addEventListener("keydown", window.__assistantPickerKeyHandler);
 
   const syncDraftState = () => {
     AssistantState.draft = assistantInput.value;
@@ -625,44 +408,19 @@ window.Pages.assistant = async function renderAssistant() {
     };
   });
 
-  if (pickerList) {
-    pickerList.onclick = (event) => {
-      const btn = event.target.closest("[data-assistant-select-lab-code]");
-      if (!btn) return;
-      const lab = (summary.labs || []).find(item => item.code === btn.dataset.assistantSelectLabCode);
-      if (!lab) return;
-      AssistantState.context = assistantContextFromLab(lab);
-      AssistantState.mode = "result_explanation";
-      AssistantState.messages = [];
-      AssistantState.draft = "";
-      AssistantState.pending = false;
-      closePicker();
-      window.App.render();
-    };
-  }
-
-  const resetContextBtn = document.getElementById("assistantResetContext");
-  if (resetContextBtn) {
-    resetContextBtn.onclick = () => {
-      AssistantState.context = null;
-      AssistantState.mode = "patient_summary";
-      AssistantState.messages = [];
-      AssistantState.draft = "";
-      AssistantState.pending = false;
-      window.App.render();
-    };
-  }
-
   document.getElementById("assistantClear").onclick = () => {
     AssistantState.messages = [];
+    AssistantState.context = null;
+    AssistantState.mode = "patient_summary";
     AssistantState.draft = "";
     AssistantState.pending = false;
-    window.App.render();
+    rerenderAssistantPreservingScroll();
   };
 
   requestAnimationFrame(() => {
+    if (restoreScrollY !== null) window.scrollTo({ top: restoreScrollY, behavior: "auto" });
     const messages = document.getElementById("assistantMessages");
     if (!messages) return;
-    messages.scrollTop = AssistantState.messages.length || AssistantState.pending ? messages.scrollHeight : 0;
+    if (AssistantState.messages.length || AssistantState.pending) messages.scrollTop = messages.scrollHeight;
   });
 };
