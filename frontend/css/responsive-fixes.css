@@ -84,7 +84,9 @@
 .cabinet-page .history-values td:first-child,
 .cabinet-page .value-history td:first-child { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .cabinet-page .compact-table caption { text-align: left; padding: 20px 10px 8px; font-size: 15px; font-weight: 500; color: #253d4b; }
-.cabinet-page .compact-table .table-actions { white-space: nowrap; }
+.cabinet-page .compact-table .table-actions,
+.cabinet-page .compact-table .table-actions button { white-space: nowrap; overflow-wrap: normal; }
+.cabinet-page .table-actions .favorite-star { margin: 0; }
 .table-actions .btn.small { padding-inline: 5px; }
 .history-controls { display: flex; align-items: center; gap: 24px; justify-content: space-between; }
 .history-controls .search-field { width: min(440px,100%); }
