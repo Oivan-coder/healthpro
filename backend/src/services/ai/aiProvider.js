@@ -12,6 +12,14 @@ function modeFor(intent) {
   if(["doctor_questions","missing_context"].includes(intent)) return "doctor_questions";
   return "assistant_chat";
 }
+function logAiFailure(stage,error) {
+  console.warn("Assistant GigaChat failure", {
+    stage,
+    message:error?.message || "unknown_error",
+    statusCode:error?.statusCode || null,
+    code:error?.code || null
+  });
+}
 async function chat(input={},patientId) {
   if(!patientId) throw Object.assign(new Error("patient_context_required"),{statusCode:403});
   const payload=context.sanitizePayload(input);
@@ -23,7 +31,10 @@ async function chat(input={},patientId) {
   const enabled=config.enabled && config.provider==="gigachat";
   if(enabled) {
     try {route=await router.classify(payload,data,config.gigachat);}
-    catch {fallbackReason="intent_router_unavailable";}
+    catch(error) {
+      fallbackReason="intent_router_unavailable";
+      logAiFailure("intent_router",error);
+    }
   }
   if(!route) route=fallbackRouter.route(payload,data);
   let grounding=context.buildGrounding(route,data,config.gigachat?.maxPromptChars);
@@ -31,6 +42,7 @@ async function chat(input={},patientId) {
     try {reply=await gigachat.chat(payload,route,grounding,config.gigachat);}
     catch(error) {
       fallbackReason="answer_validation_or_provider_failed";
+      logAiFailure("answer_or_review",error);
       if(error.message==="answer_off_topic") {
         route={intent:"clarify"};
         grounding=context.buildGrounding(route,data,config.gigachat?.maxPromptChars);
