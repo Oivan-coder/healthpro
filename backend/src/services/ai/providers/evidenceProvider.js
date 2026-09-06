@@ -12,6 +12,11 @@ function normalize(text) {
   return String(text || "").trim().toLowerCase();
 }
 
+function firstName(patient = {}) {
+  const raw = String(patient.name || patient.fullName || "").trim();
+  return raw ? raw.split(/\s+/)[0] : "";
+}
+
 function flagText(flag) {
   if (flag === "high") return "выше референсного диапазона";
   if (flag === "low") return "ниже референсного диапазона";
@@ -69,14 +74,28 @@ function sourceLines(knowledge, context = {}) {
   return lines;
 }
 
+async function patientContext(patientId) {
+  if (!patientId) return { patient: null, labs: [] };
+  try {
+    const summary = await legacyProvider.buildPatientSummaryContext(patientId);
+    return { patient: summary.patient || null, labs: summary.labs || [] };
+  } catch (error) {
+    return { patient: null, labs: [] };
+  }
+}
+
 async function evidenceAnswer(context = {}, patientId) {
   if (!context.test_name) return null;
   const knowledge = clinicalKnowledge.knowledgeFor(context);
+  const patientData = await patientContext(patientId);
+  const patientName = firstName(patientData.patient);
+  const prefix = patientName ? `${patientName}, ` : "";
+
   if (!knowledge) {
     return {
       mode: "result_explanation",
       answer: [
-        `${context.test_name}: ${valueText(context) || "значение не передано"}; результат ${flagText(context.flag)}.`,
+        `${prefix}${context.test_name}: ${valueText(context) || "значение не передано"}; результат ${flagText(context.flag)}.`,
         "Для этого показателя в подключенной доказательной базе пока нет отдельного сценария, поэтому Атлас не будет додумывать клиническую интерпретацию.",
         "Можно обсудить результат с врачом с учетом жалоб, лекарств, подготовки к исследованию и динамики."
       ].join("\n"),
@@ -85,6 +104,9 @@ async function evidenceAnswer(context = {}, patientId) {
         chainLabel: "Разбор только по подключенной доказательной базе",
         indicator: context.test_name,
         patientData: {
+          patient: patientName || null,
+          age: patientData.patient?.age ?? null,
+          sex: patientData.patient?.sex || null,
           test_code: context.test_code || null,
           test_name: context.test_name,
           value: context.value ?? null,
@@ -100,18 +122,8 @@ async function evidenceAnswer(context = {}, patientId) {
     };
   }
 
-  let patientLabs = [];
-  if (patientId) {
-    try {
-      const summary = await legacyProvider.buildPatientSummaryContext(patientId);
-      patientLabs = summary.labs || [];
-    } catch (error) {
-      patientLabs = [];
-    }
-  }
-
   const reference = knowledge.reference ? ` Референс: ${knowledge.reference}.` : "";
-  const missing = patientLabs.length ? clinicalKnowledge.missingRelated(knowledge, patientLabs) : [];
+  const missing = patientData.labs.length ? clinicalKnowledge.missingRelated(knowledge, patientData.labs) : [];
   const missingLine = missing.length
     ? `В подключенных данных сейчас не найдено: ${missing.join(", ")}. Это не назначение анализов — этот список можно использовать как вопрос врачу.`
     : "";
@@ -122,7 +134,7 @@ async function evidenceAnswer(context = {}, patientId) {
   return {
     mode: "result_explanation",
     answer: [
-      `${context.test_name}: ${valueText(context) || "значение не передано"} — ${flagText(context.flag)}.${reference}`,
+      `${prefix}${context.test_name}: ${valueText(context) || "значение не передано"} — ${flagText(context.flag)}.${reference}`,
       knowledge.interpretation,
       related,
       missingLine,
@@ -135,6 +147,9 @@ async function evidenceAnswer(context = {}, patientId) {
       chainLabel: "Разбор результата по подключенной доказательной базе",
       indicator: context.test_name,
       patientData: {
+        patient: patientName || null,
+        age: patientData.patient?.age ?? null,
+        sex: patientData.patient?.sex || null,
         test_code: context.test_code || null,
         test_name: context.test_name,
         value: context.value ?? null,
@@ -161,7 +176,7 @@ async function evidenceAnswer(context = {}, patientId) {
 async function chat(payload = {}, patientId) {
   const mode = payload.mode || "";
   const message = normalize(payload.message);
-  const asksAboutResult = /(показател|анализ|результат|референс|норм|выше|ниже|что значит|объясни)/i.test(message);
+  const asksAboutResult = /(показател|анализ|результат|референс|норм|выше|ниже|что значит|объясни|связан|влияет)/i.test(message);
 
   if (mode === "result_explanation" || (payload.context?.test_name && asksAboutResult)) {
     return (await evidenceAnswer(payload.context || {}, patientId)) || legacyProvider.chat(payload, patientId);
