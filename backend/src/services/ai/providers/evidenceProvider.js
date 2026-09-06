@@ -140,6 +140,11 @@ async function resolveMentionedLab(message, patientId) {
   return ranked[0]?.lab || null;
 }
 
+function isStudyGroupQuestion(message) {
+  const text = normalize(message);
+  return /\bоак\b|общ(ий|его).*анализ.*кров|клиническ.*анализ.*кров|коагулограмм|гемостаз|свертываемост.*кров|печеночн.*проб|печеночн.*показ|липидограмм|липидн.*профил|щитовид|тиреоидн.*профил/i.test(text);
+}
+
 async function evidenceAnswer(context = {}, patientId) {
   if (!context.test_name) return null;
   const knowledge = clinicalKnowledge.knowledgeFor(context);
@@ -252,15 +257,31 @@ async function evidenceAnswer(context = {}, patientId) {
 async function chat(payload = {}, patientId) {
   const mode = payload.mode || "";
   const message = normalize(payload.message);
-  const asksAboutResult = /(показател|анализ|результат|референс|норм|выше|ниже|что значит|объясни|почему|влияет|связан|динамик|про|мой|моя|хочу узнать)/i.test(message);
+  const asksAboutResult = /(показател|анализ|результат|референс|норм|выше|ниже|что значит|объясни|почему|влияет|связан|динамик|про|мой|моя|хочу узнать|что с|как там)/i.test(message);
 
-  if (payload.context?.test_name && (asksAboutResult || mode === "result_explanation")) {
-    return (await evidenceAnswer(payload.context || {}, patientId)) || legacyProvider.chat(payload, patientId);
+  // 1. What the user explicitly typed always wins over a previously selected card.
+  const mentionedLab = await resolveMentionedLab(message, patientId);
+  if (mentionedLab) {
+    const resolvedContext = labToContext(mentionedLab);
+    const response = await evidenceAnswer(resolvedContext, patientId);
+    if (response) {
+      response.resolvedContext = resolvedContext;
+      return response;
+    }
   }
 
-  const mentionedLab = await resolveMentionedLab(message, patientId);
-  if (mentionedLab && asksAboutResult) {
-    return (await evidenceAnswer(labToContext(mentionedLab), patientId)) || legacyProvider.chat(payload, patientId);
+  // 2. A study/group request (for example "ОАК") must not be hijacked by the selected indicator.
+  if (isStudyGroupQuestion(message)) {
+    return legacyProvider.chat(payload, patientId);
+  }
+
+  // 3. Only after explicit mentions are ruled out may the selected card be used as conversational context.
+  if (payload.context?.test_name && (asksAboutResult || mode === "result_explanation")) {
+    const response = await evidenceAnswer(payload.context || {}, patientId);
+    if (response) {
+      response.resolvedContext = payload.context;
+      return response;
+    }
   }
 
   return legacyProvider.chat(payload, patientId);
@@ -270,5 +291,6 @@ module.exports = {
   chat,
   evidenceAnswer,
   resolveMentionedLab,
+  labToContext,
   buildPatientSummaryContext: legacyProvider.buildPatientSummaryContext
 };
