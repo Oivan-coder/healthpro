@@ -18,15 +18,15 @@ function answer(route,data) {
       name:`В профиле указано: ${value}.`,sex:`В профиле указан пол: ${value}.`,birthDate:`Дата рождения в профиле: ${value}.`
     })[field]||"Какое поле профиля вас интересует?" : "Эти данные в профиле не указаны.";
   }
-  if(route.intent==="casual") return "Я на связи. О чём хотите поговорить?";
+  if(route.intent==="casual") return "Нормально 🙂 Я на связи. Можем обсудить анализы, здоровье или вообще что-нибудь другое.";
   if(lab && route.intent==="lab_result") {
     const knowledge=clinicalKnowledge.knowledgeFor(mock.contextFromLab(lab));
     return [
       line(lab),
       (lab.history||[]).length>1?`В динамике: ${lab.history.slice(-6).map(row=>`${row.date}: ${row.value??"—"} ${row.unit||lab.unit||""}`).join("; ")}.`:"",
       knowledge?.interpretation||"В подключённой базе недостаточно оснований, чтобы объяснить причину этого результата.",
-      knowledge?.related?.length?`В локальном справочном сценарии также рассматриваются: ${knowledge.related.join(", ")}. Это не назначение обследований.`:"",
-      "По этим данным я не устанавливаю диагноз и не назначаю лечение."
+      knowledge?.related?.length?`Для оценки этого блока также смотрят: ${knowledge.related.join(", ")}. Это не означает, что вам обязательно нужны все эти исследования.`:"",
+      "По одному этому результату диагноз не определяется."
     ].filter(Boolean).join("\n");
   }
   if(route.intent==="lab_group") {
@@ -36,7 +36,19 @@ function answer(route,data) {
   }
   if(["summary","attention"].includes(route.intent)) {
     const labs=route.intent==="attention"?(data.labs||[]).filter(item=>["high","low"].includes(item.flag)):data.labs||[];
-    return labs.length?labs.slice(0,8).map(item=>"- "+line(item)).join("\n"):"Подходящих результатов в подключённых данных нет.";
+    const abnormal=(data.labs||[]).filter(item=>["high","low"].includes(item.flag));
+    if(!labs.length) return "По подключённым данным заметных лабораторных отклонений сейчас не вижу.";
+    if(route.intent==="summary") {
+      return [
+        abnormal.length
+          ? `Если коротко: в последних анализах есть ${abnormal.length} ${abnormal.length===1?"показатель вне референса":"показателей вне референса"}.`
+          : "Если коротко: по последним анализам отклонений от подключённых референсов не видно.",
+        abnormal.length?abnormal.slice(0,5).map(item=>"- "+line(item)).join("\n"):"",
+        (data.historyEvents||[]).length?`Из сохранённого анамнеза также учитываю: ${(data.historyEvents||[]).slice(0,3).map(item=>item.title).join("; ")}.`:"",
+        "Это общая картина по данным кабинета, а не диагноз."
+      ].filter(Boolean).join("\n");
+    }
+    return labs.slice(0,8).map(item=>"- "+line(item)).join("\n");
   }
   if(route.intent==="history") return (data.historyEvents||[]).length
     ?"В подтверждённом анамнезе:\n"+data.historyEvents.slice(0,6).map(item=>"- "+item.title).join("\n")
@@ -48,7 +60,7 @@ function answer(route,data) {
   }
   if(route.intent==="doctor_questions") return "Можно обсудить с врачом:\n- Как оценить эти результаты вместе с моими жалобами и анамнезом?\n- Что показывает сравнение с предыдущими значениями?\n- Какие выводы позволяют сделать имеющиеся данные?";
   if(route.intent==="missing_context") return "Что именно вы хотите уточнить по результату? Можно описать жалобы и цель исследования. Я отделю ваши слова от подтверждённых данных кабинета.";
-  return "Уточните, пожалуйста, о каком показателе или вопросе идёт речь. Можете написать своими словами.";
+  return "Я не уверен, что правильно понял вопрос. Скажите чуть иначе — можно совсем простыми словами.";
 }
 async function evidenceAnswer(context,patientId,data) {
   data=data||await mock.buildPatientSummaryContext(patientId);
