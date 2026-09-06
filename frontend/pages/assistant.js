@@ -382,6 +382,25 @@ window.Pages.assistant = async function renderAssistant() {
   assistantInput.oninput = syncDraftState;
   syncDraftState();
 
+  if (window.__assistantTypeKeyHandler) {
+    document.removeEventListener("keydown", window.__assistantTypeKeyHandler);
+  }
+  window.__assistantTypeKeyHandler = (event) => {
+    if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (event.key.length !== 1) return;
+    const target = event.target;
+    if (target?.closest?.("input, textarea, select, button, a, summary, [contenteditable='true'], .modal")) return;
+    if (!document.querySelector(".assistant-page")) return;
+
+    event.preventDefault();
+    assistantInput.focus({ preventScroll: true });
+    const start = Number.isFinite(assistantInput.selectionStart) ? assistantInput.selectionStart : assistantInput.value.length;
+    const end = Number.isFinite(assistantInput.selectionEnd) ? assistantInput.selectionEnd : start;
+    assistantInput.setRangeText(event.key, start, end, "end");
+    assistantInput.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+  document.addEventListener("keydown", window.__assistantTypeKeyHandler);
+
   document.getElementById("assistantForm").onsubmit = (event) => {
     event.preventDefault();
     sendQuestion(assistantInput.value);
@@ -420,7 +439,11 @@ window.Pages.assistant = async function renderAssistant() {
   requestAnimationFrame(() => {
     if (restoreScrollY !== null) window.scrollTo({ top: restoreScrollY, behavior: "auto" });
     const messages = document.getElementById("assistantMessages");
-    if (!messages) return;
-    if (AssistantState.messages.length || AssistantState.pending) messages.scrollTop = messages.scrollHeight;
+    if (messages && (AssistantState.messages.length || AssistantState.pending)) messages.scrollTop = messages.scrollHeight;
+    if (window.matchMedia("(pointer: fine)").matches && !document.querySelector(".modal.show, .modal:not([hidden])")) {
+      assistantInput.focus({ preventScroll: true });
+      const caret = assistantInput.value.length;
+      assistantInput.setSelectionRange(caret, caret);
+    }
   });
 };
