@@ -4,7 +4,6 @@ const securityHeaders = require("./utils/securityHeaders");
 const apiRoutes = require("./routes");
 const { runtimeConfig, assertProductionConfig, isCorsOriginAllowed } = require("./config/runtime");
 const { getPool } = require("./db/mysql");
-const { runMigrations } = require("./db/migrations");
 const { attachAuth } = require("./middleware/auth");
 
 const app = express();
@@ -32,6 +31,8 @@ function corsMiddleware(req, res, next) {
   const origin = String(req.headers?.origin || "").trim();
   const sameOrigin = isSameOriginRequest(req, origin);
 
+  // First-party browser requests do not depend on CORS_ORIGIN. This is the
+  // normal deployment mode for the hosted demo: frontend and API share a host.
   if (origin && !sameOrigin) {
     if (!isCorsOriginAllowed(origin)) {
       return res.status(403).json({ error: "cors_origin_denied" });
@@ -58,6 +59,9 @@ app.use(attachAuth);
 
 app.use("/api", apiRoutes);
 
+// In hosted demo/production, serve the static patient cabinet from the same
+// origin as the API. This keeps HttpOnly session cookies first-party and avoids
+// cross-site cookie/CORS problems on mobile browsers.
 if (typeof express.static === "function") {
   const frontendDir = path.resolve(__dirname, "../../frontend");
   app.use(express.static(frontendDir));
@@ -73,19 +77,14 @@ app.use((req, res) => {
 
 app.use((error, req, res, next) => {
   const status = error.statusCode || 500;
-  res.status(status).json({ error: error.message || "internal_error" });
+  res.status(status).json({
+    error: error.message || "internal_error"
+  });
 });
 
 async function start() {
   if (config.isProduction) {
-    const pool = await getPool();
-    const connection = await pool.getConnection();
-    try {
-      const applied = await runMigrations(connection);
-      if (applied.length) console.log(`Migrations applied: ${applied.join(", ")}`);
-    } finally {
-      connection.release();
-    }
+    await getPool();
   }
 
   app.listen(config.port, () => {
