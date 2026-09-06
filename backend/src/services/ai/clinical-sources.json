@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "policy": {
+    "priority": ["minzdrav", "helix", "loinc"],
+    "rule": "Medical interpretation must be grounded in a connected source. If no source-backed scenario exists, do not infer a diagnosis or recommend treatment.",
+    "last_reviewed": "2026-09-06"
+  },
+  "sources": {
+    "minzdrav": {
+      "label": "Клинические рекомендации Минздрава России",
+      "url": "https://cr.minzdrav.gov.ru/",
+      "role": "primary_clinical"
+    },
+    "helix": {
+      "label": "Helixbook — справочник лабораторных исследований",
+      "url": "https://helix.ru/kb",
+      "role": "secondary_explanation"
+    },
+    "loinc": {
+      "label": "LOINC — международная номенклатура лабораторных наблюдений",
+      "url": "https://loinc.org/",
+      "role": "identifier"
+    }
+  },
+  "documents": {
+    "iron_deficiency_anemia": {
+      "source": "minzdrav",
+      "title": "Железодефицитная анемия",
+      "year": 2024,
+      "catalog_id": "669",
+      "url": "https://cr.minzdrav.gov.ru/",
+      "status": "connected"
+    },
+    "type_2_diabetes": {
+      "source": "minzdrav",
+      "title": "Сахарный диабет 2 типа у взрослых",
+      "url": "https://cr.minzdrav.gov.ru/",
+      "status": "connected"
+    },
+    "lipid_disorders": {
+      "source": "minzdrav",
+      "title": "Нарушения липидного обмена",
+      "url": "https://cr.minzdrav.gov.ru/",
+      "status": "connected"
+    },
+    "chronic_kidney_disease": {
+      "source": "minzdrav",
+      "title": "Хроническая болезнь почек",
+      "url": "https://cr.minzdrav.gov.ru/",
+      "status": "connected"
+    },
+    "hypothyroidism": {
+      "source": "minzdrav",
+      "title": "Гипотиреоз",
+      "url": "https://cr.minzdrav.gov.ru/",
+      "status": "connected"
+    }
+  }
+}
