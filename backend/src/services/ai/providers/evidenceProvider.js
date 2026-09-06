@@ -12,11 +12,6 @@ function normalize(text) {
   return String(text || "").trim().toLowerCase();
 }
 
-function firstName(patient = {}) {
-  const raw = String(patient.name || patient.fullName || "").trim();
-  return raw ? raw.split(/\s+/)[0] : "";
-}
-
 function flagText(flag) {
   if (flag === "high") return "выше референсного диапазона";
   if (flag === "low") return "ниже референсного диапазона";
@@ -58,55 +53,61 @@ function sourceLines(knowledge, context = {}) {
       const url = registry?.url || minzdrav?.url || "https://cr.minzdrav.gov.ru/";
       lines.push(`- ${minzdrav?.label || "Клинические рекомендации Минздрава России"} «${document.title}»${details ? ` (${details})` : ""}: ${url}`);
     });
-  } else if (minzdrav) {
-    lines.push(`- ${minzdrav.label}: ${minzdrav.url}`);
   }
 
   if (helix) lines.push(`- ${helix.label}: ${helix.url}`);
-
   if (loinc) {
-    const loincUrl = isLoincCode(context.test_code)
-      ? `https://loinc.org/${String(context.test_code).trim()}/`
-      : loinc.url;
+    const loincUrl = isLoincCode(context.test_code) ? `https://loinc.org/${String(context.test_code).trim()}/` : loinc.url;
     lines.push(`- ${loinc.label}: ${loincUrl}`);
   }
-
   return lines;
 }
 
-async function patientContext(patientId) {
-  if (!patientId) return { patient: null, labs: [] };
-  try {
-    const summary = await legacyProvider.buildPatientSummaryContext(patientId);
-    return { patient: summary.patient || null, labs: summary.labs || [] };
-  } catch (error) {
-    return { patient: null, labs: [] };
-  }
+function patientIntro(data = {}) {
+  const patient = data.patient || {};
+  const name = legacyProvider.firstName(patient);
+  const details = [];
+  if (patient.age) details.push(`${patient.age} лет`);
+  if (patient.sex) details.push(`пол — ${legacyProvider.sexText(patient.sex)}`);
+  return {
+    name,
+    details: details.join(", ")
+  };
 }
 
 async function evidenceAnswer(context = {}, patientId) {
   if (!context.test_name) return null;
   const knowledge = clinicalKnowledge.knowledgeFor(context);
-  const patientData = await patientContext(patientId);
-  const patientName = firstName(patientData.patient);
-  const prefix = patientName ? `${patientName}, ` : "";
+
+  let data = { patient: {}, labs: [] };
+  if (patientId) {
+    try {
+      data = await legacyProvider.buildPatientSummaryContext(patientId);
+    } catch (error) {
+      data = { patient: {}, labs: [] };
+    }
+  }
+  const patient = patientIntro(data);
+  const prefix = patient.name ? `${patient.name}, ` : "";
 
   if (!knowledge) {
     return {
       mode: "result_explanation",
       answer: [
-        `${prefix}${context.test_name}: ${valueText(context) || "значение не передано"}; результат ${flagText(context.flag)}.`,
-        "Для этого показателя в подключенной доказательной базе пока нет отдельного сценария, поэтому Атлас не будет додумывать клиническую интерпретацию.",
-        "Можно обсудить результат с врачом с учетом жалоб, лекарств, подготовки к исследованию и динамики."
-      ].join("\n"),
+        `${prefix}${context.test_name}: ${valueText(context) || "значение не передано"} — ${flagText(context.flag)}.`,
+        patient.details ? `При разборе я учитываю данные профиля: ${patient.details}.` : "",
+        "Для этого показателя в подключённой доказательной базе пока нет отдельного сценария, поэтому я не буду придумывать причины отклонения.",
+        "Если расскажете, зачем сдавали анализ и есть ли жалобы, я помогу сформулировать полезные вопросы врачу."
+      ].filter(Boolean).join("\n"),
+      actions: [],
       basis: {
         chain: "evidence_result_explanation",
-        chainLabel: "Разбор только по подключенной доказательной базе",
+        chainLabel: "Разбор только по подключённой доказательной базе",
         indicator: context.test_name,
         patientData: {
-          patient: patientName || null,
-          age: patientData.patient?.age ?? null,
-          sex: patientData.patient?.sex || null,
+          patient: data.patient?.name || null,
+          age: data.patient?.age || null,
+          sex: legacyProvider.sexText(data.patient?.sex),
           test_code: context.test_code || null,
           test_name: context.test_name,
           value: context.value ?? null,
@@ -115,41 +116,44 @@ async function evidenceAnswer(context = {}, patientId) {
           report_date: context.report_date || context.date || null
         },
         source: "atlas_evidence_layer",
-        sourceLabel: "Подключенная доказательная база Атласа",
-        validationStatus: "Для показателя нет валидированного отдельного сценария — клинические выводы не сформированы"
+        sourceLabel: "Подключённая доказательная база Атласа",
+        validationStatus: "Для показателя нет отдельного подтверждённого сценария — клинические выводы не сформированы"
       },
       safety: SAFETY
     };
   }
 
   const reference = knowledge.reference ? ` Референс: ${knowledge.reference}.` : "";
-  const missing = patientData.labs.length ? clinicalKnowledge.missingRelated(knowledge, patientData.labs) : [];
-  const missingLine = missing.length
-    ? `В подключенных данных сейчас не найдено: ${missing.join(", ")}. Это не назначение анализов — этот список можно использовать как вопрос врачу.`
-    : "";
+  const missing = data.labs?.length ? clinicalKnowledge.missingRelated(knowledge, data.labs) : [];
   const related = knowledge.related?.length
-    ? `В документации этот блок обычно оценивают вместе с: ${knowledge.related.join(", ")}.`
+    ? `В подключённой документации этот блок рассматривают вместе с: ${knowledge.related.join(", ")}.`
     : "";
+  const missingLine = missing.length
+    ? `В ваших подключённых данных сейчас не найдено: ${missing.join(", ")}. Это не назначение анализов — этот список можно использовать как вопрос врачу.`
+    : "";
+  const historyCount = Array.isArray(context.history) ? context.history.length : 0;
 
   return {
     mode: "result_explanation",
     answer: [
       `${prefix}${context.test_name}: ${valueText(context) || "значение не передано"} — ${flagText(context.flag)}.${reference}`,
+      historyCount > 1 ? `По этому показателю у вас есть ${historyCount} значения в динамике.` : "",
       knowledge.interpretation,
       related,
       missingLine,
-      "Это справочное пояснение по документам, а не диагноз и не назначение обследования или лечения.",
+      "Это справочное пояснение по подключённым документам, а не диагноз и не назначение лечения или обследования.",
       "Источники:",
       ...sourceLines(knowledge, context)
     ].filter(Boolean).join("\n"),
+    actions: [],
     basis: {
       chain: "evidence_result_explanation",
-      chainLabel: "Разбор результата по подключенной доказательной базе",
+      chainLabel: "Разбор результата по подключённой доказательной базе",
       indicator: context.test_name,
       patientData: {
-        patient: patientName || null,
-        age: patientData.patient?.age ?? null,
-        sex: patientData.patient?.sex || null,
+        patient: data.patient?.name || null,
+        age: data.patient?.age || null,
+        sex: legacyProvider.sexText(data.patient?.sex),
         test_code: context.test_code || null,
         test_name: context.test_name,
         value: context.value ?? null,
@@ -162,8 +166,8 @@ async function evidenceAnswer(context = {}, patientId) {
       source: "atlas_evidence_layer",
       sourceLabel: knowledge.documents?.length
         ? `Клинические рекомендации Минздрава РФ · ${knowledge.documents[0].title}`
-        : "Клинические рекомендации Минздрава РФ + Helixbook + LOINC",
-      validationStatus: "Справочная интерпретация по подключенным источникам; не является диагнозом или назначением",
+        : "Helixbook + LOINC",
+      validationStatus: "Справочная интерпретация по подключённым источникам; не является диагнозом или назначением",
       sources: knowledge.sources,
       documents: knowledge.documents,
       group: knowledge.groupTitle,
@@ -176,9 +180,10 @@ async function evidenceAnswer(context = {}, patientId) {
 async function chat(payload = {}, patientId) {
   const mode = payload.mode || "";
   const message = normalize(payload.message);
-  const asksAboutResult = /(показател|анализ|результат|референс|норм|выше|ниже|что значит|объясни|связан|влияет)/i.test(message);
+  const asksAboutResult = /(показател|анализ|результат|референс|норм|выше|ниже|что значит|объясни|почему|влияет|связан|динамик)/i.test(message);
 
-  if (mode === "result_explanation" || (payload.context?.test_name && asksAboutResult)) {
+  // Result mode is a hint: use the evidence scenario only when the user is actually asking about a result.
+  if (payload.context?.test_name && (asksAboutResult || mode === "result_explanation")) {
     return (await evidenceAnswer(payload.context || {}, patientId)) || legacyProvider.chat(payload, patientId);
   }
 
