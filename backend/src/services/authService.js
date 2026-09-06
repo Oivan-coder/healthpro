@@ -28,8 +28,13 @@ function hashSessionToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-async function createSessionForUser({ user, ip, userAgent }) {
-  if (!user || user.status !== "active") throw authError("user_blocked", 403);
+async function login({ login, password, ip, userAgent }) {
+  const user = await authRepository.findUserByLogin(login);
+  if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    throw authError("invalid_credentials", 401);
+  }
+  if (user.status !== "active") throw authError("user_blocked", 403);
+
   const token = crypto.randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   await authRepository.createSession({
@@ -41,16 +46,8 @@ async function createSessionForUser({ user, ip, userAgent }) {
     userAgent
   });
   await authRepository.touchLastLogin(user.id);
-  return { token, expiresAt, user: publicUser(user) };
-}
 
-async function login({ login, password, ip, userAgent }) {
-  const user = await authRepository.findUserByLogin(login);
-  if (!user || !(await verifyPassword(password, user.passwordHash))) {
-    throw authError("invalid_credentials", 401);
-  }
-  if (user.status !== "active") throw authError("user_blocked", 403);
-  return createSessionForUser({ user, ip, userAgent });
+  return { token, expiresAt, user: publicUser(user) };
 }
 
 async function resolveSession(token) {
@@ -80,12 +77,4 @@ async function changePassword(userId, currentPassword, nextPassword) {
   return { ok: true };
 }
 
-module.exports = {
-  login,
-  createSessionForUser,
-  resolveSession,
-  logout,
-  changePassword,
-  publicUser,
-  SESSION_TTL_MS
-};
+module.exports = { login, resolveSession, logout, changePassword, publicUser, SESSION_TTL_MS };
