@@ -50,9 +50,11 @@ async function accessToken(config) {
 async function complete(messages, config, options={}) {
   const token=await accessToken(config);
   try {
+    const payload={model:config.model,messages,stream:false,max_tokens:options.maxTokens||900,temperature:options.temperature??0};
+    if(options.responseFormat) payload.response_format=options.responseFormat;
     const json=await requestJson(config.apiUrl.replace(/\/$/,"")+"/chat/completions",{
       headers:{Authorization:"Bearer "+token,"Content-Type":"application/json",Accept:"application/json"},
-      body:JSON.stringify({model:config.model,messages,stream:false,max_tokens:options.maxTokens||900,temperature:options.temperature??0})
+      body:JSON.stringify(payload)
     },config);
     const choice=json.choices?.[0];
     if(choice?.finish_reason==="length") throw error("gigachat_truncated_answer");
@@ -68,9 +70,16 @@ async function complete(messages, config, options={}) {
 }
 function parseObject(text) {
   const raw=String(text||"").trim().replace(/^\x60\x60\x60(?:json)?\s*/i,"").replace(/\s*\x60\x60\x60$/,"");
-  try {
-    const value=JSON.parse(raw);
-    return value && typeof value==="object" && !Array.isArray(value)?value:null;
-  } catch {return null;}
+  const parse=value=>{
+    try {
+      const result=JSON.parse(value);
+      return result && typeof result==="object" && !Array.isArray(result)?result:null;
+    } catch {return null;}
+  };
+  const direct=parse(raw);
+  if(direct) return direct;
+  const start=raw.indexOf("{");
+  const end=raw.lastIndexOf("}");
+  return start>=0 && end>start ? parse(raw.slice(start,end+1)) : null;
 }
 module.exports={complete,parseObject};

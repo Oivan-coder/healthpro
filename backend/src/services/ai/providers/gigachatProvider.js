@@ -1,5 +1,28 @@
 const client = require("../gigachatClient");
 
+const ANSWER_SCHEMA={
+  type:"json_schema",strict:true,
+  schema:{
+    type:"object",additionalProperties:false,
+    properties:{
+      answer:{type:"string"},
+      evidence_ids:{type:"array",items:{type:"string"}}
+    },
+    required:["answer","evidence_ids"]
+  }
+};
+const REVIEW_SCHEMA={
+  type:"json_schema",strict:true,
+  schema:{
+    type:"object",additionalProperties:false,
+    properties:{
+      safe:{type:"boolean"},grounded:{type:"boolean"},answers_question:{type:"boolean"},
+      context_matches_question:{type:"boolean"},medical_claims:{type:"boolean"},
+      evidence_ids:{type:"array",items:{type:"string"}}
+    },
+    required:["safe","grounded","answers_question","context_matches_question","medical_claims","evidence_ids"]
+  }
+};
 const SYSTEM_PROMPT = [
   "Ты — помощник «Атлас здоровья». Отвечай естественно по-русски на конкретный текущий вопрос, обычно 2–5 предложений.",
   "Распознанное намерение — подсказка. История нужна для местоимений и продолжений, но новая тема важнее старой.",
@@ -16,7 +39,7 @@ const SYSTEM_PROMPT = [
   "При непонятном местоимении или отсутствующем показателе задай одно короткое уточнение. Не переключайся на старую карточку.",
   "Учитывай truncated: список данных неполный. Не объявляй отсутствие показателя/анамнеза лишь потому, что его нет в сокращённом контексте.",
   "На острые опасные симптомы допустима рекомендация срочно обратиться за медицинской помощью, без диагноза и схемы лечения.",
-  'Верни JSON: {"answer":"ответ с сохранением переносов строк","evidence_ids":["ID реально использованных тезисов"]}. Не добавляй медицинские дисклеймеры к обычному разговору.'
+  "Не добавляй медицинские дисклеймеры к обычному разговору."
 ].join("\n");
 
 const REVIEW_PROMPT = [
@@ -33,24 +56,22 @@ const REVIEW_PROMPT = [
   "answers_question=true, если ответ отвечает на текущую тему или просит нужное уточнение; ответ про старый показатель на новую тему не проходит.",
   "context_matches_question=true только если grounding.intent и выбранные labs соответствуют текущему вопросу. Старый выбранный анализ на вопрос о возрасте — false.",
   "Проверь cited evidence_ids: должны покрывать медицинские утверждения. Список ID без соответствующего тезиса не подтверждает ответ.",
-  'Формат: {"safe":true,"grounded":true,"answers_question":true,"context_matches_question":true,"medical_claims":false,"evidence_ids":[]}. Любое сомнение — false для соответствующей проверки.'
+  "Любое сомнение — false для соответствующей проверки."
 ].join("\n");
 
 async function chat(payload,route,grounding,config) {
   const input={question:payload.message,conversation:payload.history,grounding};
   const generated=client.parseObject(await client.complete([
     {role:"system",content:SYSTEM_PROMPT},{role:"user",content:JSON.stringify(input)}
-  ],config,{maxTokens:1100,temperature:0.2}));
+  ],config,{maxTokens:1100,temperature:0.2,responseFormat:ANSWER_SCHEMA}));
   if(typeof generated?.answer!=="string" || !generated.answer.trim() || generated.answer.length>6500 || !Array.isArray(generated.evidence_ids))
     throw new Error("answer_invalid_response");
   const allowed=new Set(grounding.evidence.map(item=>item.id));
   if(generated.evidence_ids.some(id=>typeof id!=="string"||!allowed.has(id))) throw new Error("answer_unknown_evidence");
-  // A separate semantic check gates every answer, including misclassified casual turns.
-  // Failure/timeout is closed: the caller returns only deterministic data/evidence.
   const review=client.parseObject(await client.complete([
     {role:"system",content:REVIEW_PROMPT},
     {role:"user",content:JSON.stringify({...input,candidate:generated})}
-  ],config,{maxTokens:350}));
+  ],config,{maxTokens:350,responseFormat:REVIEW_SCHEMA}));
   if(review?.answers_question===false || review?.context_matches_question===false) throw new Error("answer_off_topic");
   if(review?.safe!==true || review.grounded!==true || review.answers_question!==true || review.context_matches_question!==true ||
      typeof review.medical_claims!=="boolean" || !Array.isArray(review.evidence_ids) ||
