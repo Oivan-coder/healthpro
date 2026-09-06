@@ -58,8 +58,8 @@
 }
 
 .assistant-chat-card {
-  height: min(690px, calc(100dvh - 230px));
-  min-height: 520px;
+  height: min(790px, calc(100dvh - 170px));
+  min-height: 620px;
   padding: 18px;
   border-radius: 22px;
   border-color: #e2e9ec;
