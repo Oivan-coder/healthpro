@@ -2,6 +2,7 @@ const { getAiConfig } = require("../../config/ai");
 const mockProvider = require("./providers/evidenceProvider");
 const gigachatProvider = require("./providers/gigachatProvider");
 const llmIntentRouter = require("./llmIntentRouter");
+const queryRouter = require("./queryRouter");
 
 const SAFETY = [
   "Это не диагноз.",
@@ -95,8 +96,21 @@ async function chatWithGigachatRouter(payload, patientId, config) {
 
 async function chat(payload = {}, patientId) {
   const config = getAiConfig();
+  const routed = await queryRouter.route(payload, patientId);
+
+  if (routed.direct) {
+    return envelope(routed.direct, {
+      provider: "atlas",
+      requestedProvider: config.provider,
+      aiEnabled: config.enabled,
+      providerStatus: "success"
+    });
+  }
+
+  const effectivePayload = routed.payload;
+
   if (!config.enabled || config.provider === "mock") {
-    const response = await mockProvider.chat(payload, patientId);
+    const response = await mockProvider.chat(effectivePayload, patientId);
     return envelope(response, {
       provider: "mock",
       aiEnabled: config.enabled,
@@ -106,18 +120,18 @@ async function chat(payload = {}, patientId) {
 
   if (config.provider === "gigachat") {
     try {
-      const response = await chatWithGigachatRouter(payload, patientId, config);
+      const response = await chatWithGigachatRouter(effectivePayload, patientId, config);
       return envelope(response, {
         provider: "gigachat",
         aiEnabled: config.enabled,
         providerStatus: "success"
       });
     } catch (error) {
-      return fallbackToMock(payload, patientId, config, error.message || "gigachat_unavailable");
+      return fallbackToMock(effectivePayload, patientId, config, error.message || "gigachat_unavailable");
     }
   }
 
-  return fallbackToMock(payload, patientId, config, "unsupported_provider");
+  return fallbackToMock(effectivePayload, patientId, config, "unsupported_provider");
 }
 
 module.exports = { chat };
