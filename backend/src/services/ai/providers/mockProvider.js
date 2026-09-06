@@ -330,10 +330,15 @@ function findLabFromMessage(message, labs = []) {
   return candidates[0]?.score >= 2 ? candidates[0].lab : null;
 }
 
+function hasCyrillicToken(text, token) {
+  const parts = normalize(text).split(/[^a-zа-я0-9]+/i).filter(Boolean);
+  return parts.includes(normalize(token));
+}
+
 function detectStudyTopic(message) {
   const text = normalize(message);
-  if (/\bоак\b|общ(ий|его).*анализ.*кров|клиническ.*анализ.*кров/i.test(text)) return "общий анализ крови";
-  if (/(что|че).*мо(й|и|им).*\bок\b/i.test(text)) return "общий анализ крови";
+  if (hasCyrillicToken(text, "оак") || /общ(ий|его).*анализ.*кров|клиническ.*анализ.*кров/i.test(text)) return "общий анализ крови";
+  if (/(что|че).*мо(й|и|им).*(^|\s)ок($|\s)/i.test(text)) return "общий анализ крови";
   if (/коагулограмм|гемостаз|свертываемост.*кров/i.test(text)) return "свёртываемость крови";
   if (/печеночн.*проб|печеночн.*показ/i.test(text)) return "печёночные показатели";
   if (/липидограмм|липидн.*профил/i.test(text)) return "липидный профиль";
