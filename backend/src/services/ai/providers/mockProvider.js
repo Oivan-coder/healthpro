@@ -2,6 +2,7 @@ const patientService = require("../../patientService");
 const labService = require("../../labService");
 const appointmentService = require("../../appointmentService");
 const reportService = require("../../reportService");
+const patientHistoryService = require("../../patientHistoryService");
 
 const SAFETY = [
   "Это не диагноз.",
@@ -110,12 +111,13 @@ function responseEnvelope(response, mode) {
 }
 
 async function buildPatientSummaryContext(patientId) {
-  const [summary, labReports, visits, reports, documents] = await Promise.all([
+  const [summary, labReports, visits, reports, documents, historyEvents] = await Promise.all([
     patientService.getSummary(patientId),
     labService.getLabReports(patientId),
     appointmentService.getVisits(patientId),
     reportService.getReports(patientId),
-    reportService.getDocuments(patientId)
+    reportService.getDocuments(patientId),
+    patientHistoryService.list(patientId, 20).catch(() => [])
   ]);
   return {
     patient: summary.patient || {},
@@ -124,8 +126,31 @@ async function buildPatientSummaryContext(patientId) {
     labReports: labReports || [],
     visits: visits || [],
     reports: reports || [],
-    documents: documents || []
+    documents: documents || [],
+    historyEvents: historyEvents || []
   };
+}
+
+function recentHistoryEvents(data, limit = 4) {
+  return (data.historyEvents || []).slice(0, limit);
+}
+
+function historyDateText(event = {}) {
+  const raw = event.started_at || event.created_at;
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("ru-RU");
+}
+
+function recentHistoryLine(data, limit = 4) {
+  const events = recentHistoryEvents(data, limit);
+  if (!events.length) return "";
+  const items = events.map(event => {
+    const date = historyDateText(event);
+    return `${event.title}${date ? ` (${date})` : ""}`;
+  });
+  return `Из подтверждённого анамнеза я также вижу: ${items.join("; ")}.`;
 }
 
 function dynamicsCount(labs = []) {
@@ -144,7 +169,8 @@ function compactPatientData(data) {
     labReports: data.labReports.length,
     abnormal: data.abnormal.length,
     visits: data.visits.length,
-    documents: data.documents.length + data.reports.length
+    documents: data.documents.length + data.reports.length,
+    anamnesisEvents: (data.historyEvents || []).length
   };
 }
 
@@ -155,16 +181,18 @@ function shortSummaryAnswer(data) {
   const abnormal = data.abnormal.slice(0, 5);
   const dynCount = dynamicsCount(data.labs);
   const date = latestDate(data.labs);
+  const anamnesis = recentHistoryLine(data, 3);
   const lines = [];
   if (intro) lines.push(`${intro}${intro.endsWith(",") ? "" : "."}`);
   lines.push(data.abnormal.length
     ? `В последних анализах ${data.abnormal.length} ${data.abnormal.length === 1 ? "показатель выходит" : "показателей выходят"} за референсный диапазон.`
     : "По последним подключённым анализам отклонений от референсных диапазонов не видно.");
   if (abnormal.length) lines.push(`Сейчас в зоне внимания: ${abnormal.map(lab => lab.name).join(", ")}.`);
+  if (anamnesis) lines.push(anamnesis);
   if (dynCount) lines.push(`Повторные значения есть по ${dynCount} показателям — их уже можно смотреть в динамике.`);
   else lines.push("По текущим отклонениям повторных значений пока недостаточно для оценки динамики.");
   if (date) lines.push(`Последние результаты: ${date}.`);
-  lines.push("Это справочная сводка, а не диагноз; приоритет зависит от жалоб, причины обследования, лекарств и условий сдачи анализов.");
+  lines.push("Это справочная сводка, а не диагноз; анамнез помогает учитывать контекст, но сам по себе не доказывает причину отклонений.");
   return {
     answer: lines.join("\n"), actions: [],
     basis: buildBasis("patient_summary", null, { patientData: compactPatientData(data), chainLabel: "Короткая сводка пациента" })
@@ -183,12 +211,16 @@ function attentionAnswer(data) {
     if (!grouped.has(group)) grouped.set(group, []);
     grouped.get(group).push(formatLab(lab));
   });
+  const anamnesis = recentHistoryLine(data, 3);
   return {
     answer: [
       `${name ? `${name}, ` : ""}сейчас вне референсного диапазона ${data.abnormal.length} показателей.`,
       ...Array.from(grouped.entries()).map(([group, labs]) => `- ${group}: ${labs.join("; ")}`),
-      "Если скажете, зачем сдавали анализы и есть ли жалобы, я помогу сузить, что обсудить с врачом в первую очередь."
-    ].join("\n"),
+      anamnesis,
+      anamnesis
+        ? "Этот анамнез может быть важен как контекст для врача, но по нему нельзя автоматически объяснять лабораторные отклонения."
+        : "Если скажете, зачем сдавали анализы и есть ли жалобы, я помогу сузить, что обсудить с врачом в первую очередь."
+    ].filter(Boolean).join("\n"),
     actions: [], basis: buildBasis("attention", null, { patientData: compactPatientData(data), chainLabel: "Что требует внимания" })
   };
 }
@@ -196,29 +228,33 @@ function attentionAnswer(data) {
 function doctorQuestionsAnswer(data, context) {
   const name = firstName(data.patient || {});
   const selected = context?.test_name ? ` по показателю «${context.test_name}»` : "";
+  const anamnesis = recentHistoryLine(data, 3);
   return {
     answer: [
       `${name ? `${name}, ` : ""}для разговора с врачом${selected} я бы подготовил 4 вопроса:`,
+      anamnesis ? `- насколько важен для интерпретации недавний анамнез: ${recentHistoryEvents(data, 3).map(item => item.title).join(", ")};` : null,
       "- какие из отклонений действительно значимы именно с учётом ваших жалоб и причины обследования;",
       "- могли ли лекарства, питание, физическая нагрузка или условия сдачи повлиять на результат;",
       "- какие показатели стоит оценивать вместе, а не по одному;",
       "- нужна ли врачу динамика или повторное исследование и при каких условиях."
-    ].join("\n"), actions: [],
+    ].filter(Boolean).join("\n"), actions: [],
     basis: buildBasis("doctor_questions", context, { patientData: compactPatientData(data), chainLabel: "Подготовка вопросов врачу" })
   };
 }
 
 function missingDataAnswer(data) {
   const name = firstName(data.patient || {});
+  const hasHistory = recentHistoryEvents(data, 1).length > 0;
   return {
     answer: [
       `${name ? `${name}, ` : ""}для более полезного разбора мне сейчас больше всего не хватает контекста:`,
-      "- зачем сдавали анализы и какие есть жалобы;",
+      hasHistory ? null : "- текущие или недавние жалобы и симптомы;",
+      "- зачем сдавали анализы;",
       "- лекарства и добавки;",
       "- условия сдачи анализа;",
       "- важные диагнозы или состояния, если они уже установлены врачом.",
-      "Сами результаты и ваш пол/возраст я уже вижу в Атласе."
-    ].join("\n"), actions: [],
+      hasHistory ? "Подтверждённые симптомы из анамнеза я уже учитываю." : "Сами результаты и ваш пол/возраст я уже вижу в Атласе."
+    ].filter(Boolean).join("\n"), actions: [],
     basis: buildBasis("missing_context", null, { patientData: compactPatientData(data), chainLabel: "Недостающий контекст" })
   };
 }
@@ -232,7 +268,7 @@ function casualAnswer(data, message) {
   let answer;
   if (otherTopic) answer = "Конечно. Можем немного отвлечься от анализов — о чём хотите поговорить?";
   else if (how) answer = `${name ? `${name}, ` : ""}всё в порядке 🙂 Я на связи.`;
-  else if (openEnded) answer = `${name ? `${name}, ` : ""}могу рассказать о том, что вижу в ваших анализах, разобрать отдельный показатель или просто поговорить на другую тему. Что интереснее?`;
+  else if (openEnded) answer = `${name ? `${name}, ` : ""}могу рассказать о том, что вижу в ваших анализах, учесть сохранённый анамнез, разобрать отдельный показатель или просто поговорить на другую тему. Что интереснее?`;
   else if (hi) answer = `${name ? `${name}, ` : ""}здравствуйте.`;
   else answer = "Я на связи.";
   return { answer, actions: [], basis: buildBasis("casual", null, { patientData: compactPatientData(data), chainLabel: "Обычный диалог" }) };
@@ -242,12 +278,15 @@ function resultAnswer(context, data) {
   if (!context?.test_name) return { answer: "Назовите показатель в вопросе — я попробую найти его среди ваших результатов и разобрать именно его.", actions: [], basis: buildBasis("result_explanation", context) };
   const name = firstName(data.patient || {});
   const historyCount = Array.isArray(context.history) ? context.history.length : 0;
+  const anamnesis = recentHistoryLine(data, 4);
   return {
     answer: [
       `${name ? `${name}, ` : ""}${context.test_name}: ${context.value ?? ""} ${context.unit || ""} — ${flagText(context.flag)}.`,
       historyCount > 1 ? `По этому показателю у вас есть ${historyCount} значения в динамике.` : "Повторных значений по этому показателю пока недостаточно для оценки динамики.",
+      anamnesis,
+      anamnesis ? "Я буду учитывать этот анамнез как персональный контекст, но не стану автоматически считать его причиной изменения показателя без подтверждённого источника." : null,
       "Для медицинской трактовки я использую только подключённые доказательные сценарии и не буду придумывать диагноз."
-    ].join("\n"), actions: [],
+    ].filter(Boolean).join("\n"), actions: [],
     basis: buildBasis("result_explanation", context, { patientData: compactPatientData(data), chainLabel: "Разбор результата" })
   };
 }
@@ -266,7 +305,6 @@ const LAB_ALIASES = [
 
 function findLabFromMessage(message, labs = []) {
   const text = normalize(message);
-  const compactText = compactKey(text);
   for (const alias of LAB_ALIASES) {
     if (!alias.re.test(text)) continue;
     const found = labs.find(lab => {
@@ -295,7 +333,7 @@ function findLabFromMessage(message, labs = []) {
 function detectStudyTopic(message) {
   const text = normalize(message);
   if (/\bоак\b|общ(ий|его).*анализ.*кров|клиническ.*анализ.*кров/i.test(text)) return "общий анализ крови";
-  if (/(что|че).*мо(й|и|им).*\bок\b/i.test(text)) return "общий анализ крови"; // common typo for ОАК in short chat
+  if (/(что|че).*мо(й|и|им).*\bок\b/i.test(text)) return "общий анализ крови";
   if (/коагулограмм|гемостаз|свертываемост.*кров/i.test(text)) return "свёртываемость крови";
   if (/печеночн.*проб|печеночн.*показ/i.test(text)) return "печёночные показатели";
   if (/липидограмм|липидн.*профил/i.test(text)) return "липидный профиль";
@@ -313,11 +351,13 @@ function studyAnswer(topic, data) {
     };
   }
   const abnormal = labs.filter(lab => lab.flag && lab.flag !== "normal");
+  const anamnesis = recentHistoryLine(data, 3);
   const lines = [
     `${name ? `${name}, ` : ""}по блоку «${topic}» у вас сейчас ${labs.length} показателей${abnormal.length ? `, из них ${abnormal.length} вне референсного диапазона` : ", отклонений по подключённым референсам не видно"}.`,
-    ...labs.slice(0, 8).map(lab => `- ${formatLab(lab)}`)
-  ];
-  if (abnormal.length) lines.push("Я могу разобрать любой из отклонённых показателей отдельно и сверить его с подключённой доказательной базой.");
+    ...labs.slice(0, 8).map(lab => `- ${formatLab(lab)}`),
+    anamnesis
+  ].filter(Boolean);
+  if (abnormal.length) lines.push("Я могу разобрать любой из отклонённых показателей отдельно и учесть сохранённый анамнез как дополнительный контекст.");
   return {
     answer: lines.join("\n"), actions: [],
     basis: buildBasis("study_group", null, { patientData: compactPatientData(data), chainLabel: `Разбор: ${topic}` })
@@ -372,7 +412,7 @@ async function chat(payload = {}, patientId) {
   }
 
   return responseEnvelope({
-    answer: "Не до конца понял формулировку. Если речь об анализах, можете написать даже коротко — например «ОАК», «Д-димер», «что с лейкоцитами». Я попробую сам найти нужные результаты.",
+    answer: "Не до конца понял формулировку. Если речь об анализах, можете написать даже коротко — например «ОАК», «D-димер», «что с лейкоцитами». Я попробую сам найти нужные результаты.",
     actions: [], basis: buildBasis("clarification", context, { patientData: compactPatientData(data), chainLabel: "Уточнение запроса" })
   }, "assistant_chat");
 }
