@@ -9,7 +9,13 @@ const SAFETY = [
 ];
 
 function normalize(text) {
-  return String(text || "").trim().toLowerCase();
+  return String(text || "").trim().toLowerCase().replace(/ё/g, "е");
+}
+
+function compact(text) {
+  return normalize(text)
+    .replace(/d/g, "д")
+    .replace(/[^a-zа-я0-9]+/gi, "");
 }
 
 function flagText(flag) {
@@ -69,10 +75,63 @@ function patientIntro(data = {}) {
   const details = [];
   if (patient.age) details.push(`${patient.age} лет`);
   if (patient.sex) details.push(`пол — ${legacyProvider.sexText(patient.sex)}`);
+  return { name, details: details.join(", ") };
+}
+
+function labToContext(lab = {}) {
   return {
-    name,
-    details: details.join(", ")
+    test_code: lab.code || null,
+    test_name: lab.name || null,
+    value: lab.latestValue ?? lab.value ?? null,
+    unit: lab.unit || null,
+    flag: lab.flag || null,
+    report_date: lab.latestDate || lab.date || null,
+    reference_low: lab.reference_low ?? lab.referenceLow ?? lab.ref_low ?? null,
+    reference_high: lab.reference_high ?? lab.referenceHigh ?? lab.ref_high ?? null,
+    reference: lab.reference || lab.referenceText || lab.reference_text || null,
+    history: Array.isArray(lab.history)
+      ? lab.history.map(row => ({ date: row.date, value: row.value, flag: row.flag }))
+      : []
   };
+}
+
+function scoreLabMention(message, lab = {}) {
+  const text = normalize(message);
+  const compactText = compact(message);
+  const candidates = [lab.name, lab.code]
+    .filter(Boolean)
+    .flatMap(value => {
+      const normalized = normalize(value);
+      const baseName = normalized.replace(/\([^)]*\)/g, " ").replace(/\s+/g, " ").trim();
+      return [normalized, baseName, compact(normalized), compact(baseName)].filter(Boolean);
+    });
+
+  let score = 0;
+  candidates.forEach(candidate => {
+    const c = normalize(candidate);
+    const cc = compact(candidate);
+    if (c.length >= 3 && text.includes(c)) score = Math.max(score, 100 + c.length);
+    if (cc.length >= 3 && compactText.includes(cc)) score = Math.max(score, 90 + cc.length);
+  });
+
+  const name = normalize(lab.name);
+  if (/d[- ]?димер|d[- ]?dimer/i.test(name) && /(д\s*[-]?\s*димер|ддимер|d\s*[-]?\s*dimer)/i.test(text)) score = Math.max(score, 160);
+  return score;
+}
+
+async function resolveMentionedLab(message, patientId) {
+  if (!patientId || !String(message || "").trim()) return null;
+  let data;
+  try {
+    data = await legacyProvider.buildPatientSummaryContext(patientId);
+  } catch (error) {
+    return null;
+  }
+  const ranked = (data.labs || [])
+    .map(lab => ({ lab, score: scoreLabMention(message, lab) }))
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return ranked[0]?.lab || null;
 }
 
 async function evidenceAnswer(context = {}, patientId) {
@@ -180,11 +239,15 @@ async function evidenceAnswer(context = {}, patientId) {
 async function chat(payload = {}, patientId) {
   const mode = payload.mode || "";
   const message = normalize(payload.message);
-  const asksAboutResult = /(показател|анализ|результат|референс|норм|выше|ниже|что значит|объясни|почему|влияет|связан|динамик)/i.test(message);
+  const asksAboutResult = /(показател|анализ|результат|референс|норм|выше|ниже|что значит|объясни|почему|влияет|связан|динамик|про|мой|моя|хочу узнать)/i.test(message);
 
-  // Result mode is a hint: use the evidence scenario only when the user is actually asking about a result.
   if (payload.context?.test_name && (asksAboutResult || mode === "result_explanation")) {
     return (await evidenceAnswer(payload.context || {}, patientId)) || legacyProvider.chat(payload, patientId);
+  }
+
+  const mentionedLab = await resolveMentionedLab(message, patientId);
+  if (mentionedLab && asksAboutResult) {
+    return (await evidenceAnswer(labToContext(mentionedLab), patientId)) || legacyProvider.chat(payload, patientId);
   }
 
   return legacyProvider.chat(payload, patientId);
@@ -193,5 +256,6 @@ async function chat(payload = {}, patientId) {
 module.exports = {
   chat,
   evidenceAnswer,
+  resolveMentionedLab,
   buildPatientSummaryContext: legacyProvider.buildPatientSummaryContext
 };
