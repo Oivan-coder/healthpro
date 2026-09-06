@@ -1,4 +1,4 @@
-// Limited offline/outage fallback. The enabled LLM does not pass through these rules.
+// Limited offline/outage fallback. The enabled LLM does not normally pass through these rules.
 const mock = require("./providers/mockProvider");
 
 function normalize(message) {
@@ -19,9 +19,8 @@ function route(payload,data) {
   const field=profileField(text);
   if(field) return {intent:"profile",profileField:field};
 
-  // This branch exists only when the model is disabled/unavailable. Keep it small,
-  // but do not make ordinary conversation or broad health questions feel broken.
-  if(/^(как (?:твои )?дела|как ты|как жизнь|че как|чо как|что нового|как делишки)[?.!]*$/.test(text))
+  // This branch exists only when the semantic router is disabled/unavailable.
+  if(/^(как (?:твои )?дела|как ты|как жизнь|че как|чо как|что нового|как делишки|расскажи(?: мне)? о себе|кто ты(?: такой|такая)?|что ты умеешь|что ты можешь|чем ты можешь помочь)[?.!]*$/.test(text))
     return {intent:"casual"};
   if(/^(че|чо|что) со мной[?.!]*$|как я вообще[?.!]*$|что у меня (?:вообще )?со здоровьем[?.!]*$|что скажешь (?:в целом )?по здоровью[?.!]*$/.test(text))
     return {intent:"summary"};

@@ -3,6 +3,7 @@ const https = require("https");
 
 let cached = {key:"", token:"", expiresAt:0, pending:null};
 const error = (message, statusCode=502) => Object.assign(new Error(message), {statusCode});
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 function requestJson(url, options, config) {
   return new Promise((resolve,reject) => {
     const target = new URL(url);
@@ -48,8 +49,9 @@ async function accessToken(config) {
   return state.pending;
 }
 async function complete(messages, config, options={}) {
-  const token=await accessToken(config);
+  let token;
   try {
+    token=await accessToken(config);
     const payload={model:config.model,messages,stream:false,max_tokens:options.maxTokens||900,temperature:options.temperature??0};
     if(options.responseFormat) payload.response_format=options.responseFormat;
     const json=await requestJson(config.apiUrl.replace(/\/$/,"")+"/chat/completions",{
@@ -62,11 +64,16 @@ async function complete(messages, config, options={}) {
     return choice.message.content.trim();
   } catch(err) {
     if(err.statusCode===401 && !options.retried) {
-      if(cached.token===token) {cached.token="";cached.expiresAt=0;}
+      if(token && cached.token===token) {cached.token="";cached.expiresAt=0;}
       return complete(messages,config,{...options,retried:true});
     }
     if(options.responseFormat && !options.formatFallback && [400,404,415,422].includes(err.statusCode)) {
       return complete(messages,config,{...options,responseFormat:null,formatFallback:true});
+    }
+    const transient=err.message==="gigachat_network_error" || err.message==="gigachat_timeout" || [429,500,502,503,504].includes(err.statusCode);
+    if(transient && !options.transientRetried) {
+      await sleep(300);
+      return complete(messages,config,{...options,transientRetried:true});
     }
     throw err;
   }
