@@ -5,7 +5,7 @@ const mysql = require("mysql2/promise");
 const { dbConfig } = require("../db/env");
 
 const EXPECTED_COLUMNS = 14;
-const FORWARD_FILL_COLUMNS = [0, 1, 2, 3, 9, 10, 11];
+const LEGACY_FORWARD_FILL_COLUMNS = [0, 1, 2, 3, 9, 10, 11];
 const STATUS_READY = "ready";
 const STATUS_NEEDS_REVIEW = "needs_review";
 const STATUS_SKIPPED_HEADER = "skipped_header";
@@ -31,28 +31,14 @@ function hash(value, length = 14) {
   return crypto.createHash("sha1").update(value).digest("hex").slice(0, length);
 }
 
-function detectDelimiter(line) {
-  const candidates = [",", ";", "\t"];
-  let best = ",";
-  let bestCount = -1;
-  for (const candidate of candidates) {
-    const count = splitCsvLine(line, candidate).length;
-    if (count > bestCount) {
-      best = candidate;
-      bestCount = count;
-    }
-  }
-  return best;
-}
-
-function splitCsvLine(line, delimiter) {
+function splitCsvRecord(record, delimiter) {
   const cells = [];
   let cell = "";
   let inQuotes = false;
 
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const next = line[i + 1];
+  for (let i = 0; i < record.length; i += 1) {
+    const char = record[i];
+    const next = record[i + 1];
     if (char === '"' && inQuotes && next === '"') {
       cell += '"';
       i += 1;
@@ -73,18 +59,83 @@ function splitCsvLine(line, delimiter) {
   return cells;
 }
 
+function firstCsvRecord(content) {
+  let inQuotes = false;
+  let record = "";
+  for (let i = 0; i < content.length; i += 1) {
+    const char = content[i];
+    const next = content[i + 1];
+    if (char === '"' && inQuotes && next === '"') {
+      record += '""';
+      i += 1;
+      continue;
+    }
+    if (char === '"') inQuotes = !inQuotes;
+    if (char === "\n" && !inQuotes) break;
+    record += char;
+  }
+  return record;
+}
+
+function detectDelimiter(content) {
+  const firstRecord = firstCsvRecord(content);
+  const candidates = [",", ";", "\t"];
+  let best = ",";
+  let bestCount = -1;
+  for (const candidate of candidates) {
+    const count = splitCsvRecord(firstRecord, candidate).length;
+    if (count > bestCount) {
+      best = candidate;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
+function parseCsvRecords(content, delimiter) {
+  const records = [];
+  let rawRecord = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < content.length; i += 1) {
+    const char = content[i];
+    const next = content[i + 1];
+    if (char === '"' && inQuotes && next === '"') {
+      rawRecord += '""';
+      i += 1;
+      continue;
+    }
+    if (char === '"') inQuotes = !inQuotes;
+
+    if (char === "\n" && !inQuotes) {
+      if (rawRecord.trim()) records.push(rawRecord);
+      rawRecord = "";
+      continue;
+    }
+    rawRecord += char;
+  }
+
+  if (rawRecord.trim()) records.push(rawRecord);
+  if (inQuotes) throw new Error("CSV contains an unclosed quoted field");
+
+  return records.map((record, index) => {
+    const cells = splitCsvRecord(record, delimiter);
+    return {
+      rowNumber: index + 1,
+      rawLine: record,
+      cells,
+      originalColumnCount: cells.length
+    };
+  });
+}
+
 function readCsv(filePath) {
   if (!fs.existsSync(filePath)) {
     throw new Error(`CSV file not found: ${filePath}`);
   }
   const content = fs.readFileSync(filePath, "utf8").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-  const lines = content.split("\n").filter((line) => line.trim());
-  const firstDataLine = lines.find((line) => line.trim()) || "";
-  const delimiter = detectDelimiter(firstDataLine);
-  return lines.map((line, index) => {
-    const cells = splitCsvLine(line, delimiter);
-    return { rowNumber: index + 1, rawLine: line, cells, originalColumnCount: cells.length };
-  });
+  const delimiter = detectDelimiter(content);
+  return parseCsvRecords(content, delimiter);
 }
 
 function readXlsx(filePath, sheetName) {
@@ -283,6 +334,15 @@ function buildRow(rowNumber, rawLine, cells, originalColumnCount, importStatus =
   return row;
 }
 
+function applyLegacyForwardFill(cells, last) {
+  const filled = cells.slice(0, EXPECTED_COLUMNS);
+  LEGACY_FORWARD_FILL_COLUMNS.forEach((index) => {
+    if (filled[index]) last[index] = filled[index];
+    else filled[index] = last[index];
+  });
+  return filled;
+}
+
 function prepareRows(filePath, options = {}) {
   const skipRows = Number(options.skipRows || 0);
   const rawRows = readDictionaryRows(filePath, options);
@@ -296,13 +356,11 @@ function prepareRows(filePath, options = {}) {
       return buildRow(rowNumber, rawLine, cells, originalColumnCount, STATUS_NEEDS_REVIEW, "invalid_column_count");
     }
 
-    const filled = cells.slice(0, EXPECTED_COLUMNS);
-    FORWARD_FILL_COLUMNS.forEach((index) => {
-      if (filled[index]) last[index] = filled[index];
-      else filled[index] = last[index];
-    });
+    const preparedCells = options.legacyForwardFill
+      ? applyLegacyForwardFill(cells, last)
+      : cells.slice(0, EXPECTED_COLUMNS);
 
-    return buildRow(rowNumber, rawLine, filled, originalColumnCount);
+    return buildRow(rowNumber, rawLine, preparedCells, originalColumnCount);
   });
 
   markNeedsReview(prepared);
@@ -317,6 +375,16 @@ function markNeedsReview(rows) {
     const comments = [];
     if (!row.normalizedServiceName) comments.push("missing_service_name");
     if (!row.normalizedTestName) comments.push("missing_test_name");
+
+    const low = parseNumeric(row.rawReferenceLow);
+    const high = parseNumeric(row.rawReferenceHigh);
+    if (low !== null && high !== null && low > high) comments.push("reference_low_greater_than_high");
+
+    const criticalLow = parseNumeric(row.rawCriticalLow);
+    const criticalHigh = parseNumeric(row.rawCriticalHigh);
+    if (criticalLow !== null && criticalHigh !== null && criticalLow > criticalHigh) {
+      comments.push("critical_low_greater_than_high");
+    }
 
     const identity = testIdentity(row);
     const unit = normalize(row.normalizedUnit);
@@ -339,13 +407,17 @@ function inspectRows(rows) {
   const tests = new Set();
   const links = new Set();
   let references = 0;
+  let blankBiomaterialRows = 0;
+  let blankUnitRows = 0;
+
   rows.forEach((row) => {
     if (row.importStatus !== STATUS_READY) return;
-
     if (row.normalizedServiceName) services.add(serviceKey(row));
     if (row.normalizedTestName) tests.add(testIdentity(row));
     if (row.normalizedServiceName && row.normalizedTestName) links.add(`${serviceKey(row)}|${testIdentity(row)}`);
     if (hasReference(row)) references += 1;
+    if (!row.normalizedBiomaterial) blankBiomaterialRows += 1;
+    if (!row.normalizedUnit) blankUnitRows += 1;
   });
 
   return {
@@ -359,6 +431,8 @@ function inspectRows(rows) {
     invalidColumnCountRows: rows.filter((row) => row.reviewComment === "invalid_column_count").length,
     readyRows: rows.filter((row) => row.importStatus === STATUS_READY).length,
     needsReviewRows: rows.filter((row) => row.importStatus === STATUS_NEEDS_REVIEW).length,
+    blankBiomaterialRows,
+    blankUnitRows,
     firstReadyRows: rows.filter((row) => row.importStatus === STATUS_READY).slice(0, 10).map(printableRow),
     needsReviewExamples: rows.filter((row) => row.importStatus === STATUS_NEEDS_REVIEW).slice(0, 10).map(printableRow)
   };
@@ -380,7 +454,9 @@ function parseArgs(argv) {
     fileArg,
     skipRows,
     sheet: sheetArg ? sheetArg.split("=").slice(1).join("=") : "",
-    exportReviewArg: exportReviewArg ? exportReviewArg.split("=").slice(1).join("=") : ""
+    exportReviewArg: exportReviewArg ? exportReviewArg.split("=").slice(1).join("=") : "",
+    legacyForwardFill: args.includes("--legacy-forward-fill"),
+    allowReview: args.includes("--allow-review")
   };
 }
 
@@ -452,7 +528,9 @@ function printInspect(filePath, rows) {
     skipped_header_rows: summary.skippedHeaderRows,
     invalid_column_count_rows: summary.invalidColumnCountRows,
     ready_rows: summary.readyRows,
-    needs_review_rows: summary.needsReviewRows
+    needs_review_rows: summary.needsReviewRows,
+    blank_biomaterial_rows: summary.blankBiomaterialRows,
+    blank_unit_rows: summary.blankUnitRows
   }]);
   console.log("First 10 ready rows:");
   console.table(summary.firstReadyRows);
@@ -603,13 +681,11 @@ async function upsertTest(connection, existing, row, counters) {
   const id = testId(row);
   const byCode = existing.testByCode.get(code);
   const group = row.normalizedSubsection || row.normalizedSection || "Справочник";
-  const lowNumeric = parseNumeric(row.rawReferenceLow);
-  const highNumeric = parseNumeric(row.rawReferenceHigh);
 
   await connection.query(
     `INSERT INTO lab_tests
       (id, code, source_test_code, name, display_name, biomaterial, preferred_unit, base_analyte, context, timepoint, method, value_type, synonyms_ru, synonyms_en, default_group, unit, low_value, high_value, graphable, active)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 1, 1)
      ON DUPLICATE KEY UPDATE
       name=VALUES(name),
       display_name=VALUES(display_name),
@@ -640,9 +716,7 @@ async function upsertTest(connection, existing, row, counters) {
       row.rawSynonymsRu,
       row.rawSynonymsEn,
       group,
-      row.normalizedUnit,
-      lowNumeric,
-      highNumeric
+      row.normalizedUnit
     ]
   );
 
@@ -694,8 +768,13 @@ async function insertReference(connection, existing, testIdValue, row, counters)
   counters.referencesCreated += 1;
 }
 
-async function importRows(filePath, rows) {
+async function importRows(filePath, rows, options = {}) {
   const sourceFile = path.relative(process.cwd(), filePath);
+  const needsReviewRows = rows.filter((row) => row.importStatus === STATUS_NEEDS_REVIEW).length;
+  if (needsReviewRows && !options.allowReview) {
+    throw new Error(`Import blocked: ${needsReviewRows} row(s) need review. Run inspect/export-review first or pass --allow-review intentionally.`);
+  }
+
   const connection = await connect();
   const counters = {
     rowsRead: rows.length,
@@ -706,7 +785,7 @@ async function importRows(filePath, rows) {
     testsUpdated: 0,
     serviceTestLinksCreated: 0,
     referencesCreated: 0,
-    needsReviewRows: rows.filter((row) => row.importStatus === STATUS_NEEDS_REVIEW).length,
+    needsReviewRows,
     skippedRows: 0
   };
 
@@ -751,16 +830,18 @@ function printImportReport(report) {
 }
 
 async function main() {
-  const { command, fileArg, skipRows, sheet, exportReviewArg } = parseArgs(process.argv);
+  const { command, fileArg, skipRows, sheet, exportReviewArg, legacyForwardFill, allowReview } = parseArgs(process.argv);
   if (!["inspect", "import"].includes(command) || !fileArg) {
     console.error("Usage:");
-    console.error("  node src/import/dictionaryImport.js inspect backend/import/dictionaries/lab_dictionary_full.xlsx --skip-rows=3 --sheet=Sheet1");
-    console.error("  node src/import/dictionaryImport.js import backend/import/dictionaries/lab_dictionary_full.xlsx --skip-rows=3 --sheet=Sheet1");
+    console.error("  node src/import/dictionaryImport.js inspect backend/import/dictionaries/lab_dictionary_full.csv");
+    console.error("  node src/import/dictionaryImport.js import backend/import/dictionaries/lab_dictionary_full.csv");
+    console.error("  Legacy source only: add --legacy-forward-fill");
+    console.error("  Partial import only when intentional: add --allow-review");
     process.exit(1);
   }
 
   const filePath = resolveInputPath(fileArg);
-  const rows = prepareRows(filePath, { skipRows, sheet });
+  const rows = prepareRows(filePath, { skipRows, sheet, legacyForwardFill });
   if (command === "inspect") {
     printInspect(filePath, rows);
     if (exportReviewArg) {
@@ -771,7 +852,7 @@ async function main() {
     return;
   }
 
-  const report = await importRows(filePath, rows);
+  const report = await importRows(filePath, rows, { allowReview });
   printImportReport(report);
 }
 
@@ -787,5 +868,7 @@ module.exports = {
   inspectRows,
   parseArgs,
   parseNumeric,
-  testIdentity
+  testIdentity,
+  parseCsvRecords,
+  splitCsvRecord
 };

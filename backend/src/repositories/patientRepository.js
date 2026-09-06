@@ -26,6 +26,29 @@ async function getPatient(patientId) {
   }, () => readJson("patient"));
 }
 
+async function updatePatient(patientId, values) {
+  return withMysql(async (pool) => {
+    const [result] = await pool.query(`
+      UPDATE patients
+      SET name = ?, initials = ?, birth_date = ?, age = ?, sex = ?, phone = ?, policy = ?, clinic = ?, region = ?
+      WHERE id = ?
+    `, [
+      values.name,
+      values.initials,
+      values.birthDate,
+      values.age,
+      values.sex,
+      values.phone,
+      values.policy,
+      values.clinic,
+      values.region,
+      patientId
+    ]);
+    if (!result.affectedRows) return null;
+    return getPatient(patientId);
+  }, () => null);
+}
+
 async function getMeta() {
   return withMysql(async (pool) => {
     const [rows] = await pool.query("SELECT finished_at FROM sync_jobs ORDER BY started_at DESC LIMIT 1");
@@ -37,4 +60,4 @@ async function getMeta() {
   }, () => readJson("meta"));
 }
 
-module.exports = { getPatient, getMeta };
+module.exports = { getPatient, updatePatient, getMeta };
