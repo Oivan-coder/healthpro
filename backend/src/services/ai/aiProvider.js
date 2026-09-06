@@ -1,5 +1,5 @@
 const { getAiConfig } = require("../../config/ai");
-const mockProvider = require("./providers/mockProvider");
+const mockProvider = require("./providers/evidenceProvider");
 const gigachatProvider = require("./providers/gigachatProvider");
 
 const SAFETY = [
