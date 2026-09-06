@@ -17,7 +17,6 @@ function firstName(patient = {}) {
   const raw = String(patient.name || patient.fullName || "").trim();
   if (!raw) return "";
   const parts = raw.split(/\s+/).filter(Boolean);
-  // Most records are stored as Фамилия Имя Отчество.
   return parts[1] || parts[0] || "";
 }
 
@@ -221,9 +220,19 @@ function casualAnswer(data, message) {
   const name = firstName(data.patient || {});
   const hi = /(привет|здравств|добрый|доброе)/i.test(message);
   const how = /(как дела|как ты|че как|что нового)/i.test(message);
-  let answer = hi ? `${name ? `${name}, ` : ""}здравствуйте.` : `${name ? `${name}, ` : ""}я на месте.`;
-  if (how) answer = `${name ? `${name}, ` : ""}всё в порядке 🙂 Я готов помочь с вашими анализами.`;
-  answer += " Можете спросить про конкретный показатель, попросить короткую сводку или спросить, что сейчас требует внимания.";
+  const otherTopic = /(поговорим|поговорить|о чем[- ]?то другом|не про анализ|другая тема|сменим тему)/i.test(message);
+
+  let answer;
+  if (otherTopic) {
+    answer = "Конечно. Можем немного отвлечься от анализов — о чём хотите поговорить?";
+  } else if (how) {
+    answer = `${name ? `${name}, ` : ""}всё в порядке 🙂 Я на связи.`;
+  } else if (hi) {
+    answer = `${name ? `${name}, ` : ""}здравствуйте.`;
+  } else {
+    answer = "Я на связи.";
+  }
+
   return {
     answer,
     actions: [],
@@ -234,7 +243,7 @@ function casualAnswer(data, message) {
 function resultAnswer(context, data) {
   if (!context?.test_name) {
     return {
-      answer: "Выберите показатель или назовите его в вопросе — тогда я разберу именно его и не буду смешивать с остальными анализами.",
+      answer: "Назовите показатель в вопросе — я попробую найти его среди ваших результатов и разобрать именно его.",
       actions: [],
       basis: buildBasis("result_explanation", context)
     };
@@ -245,7 +254,7 @@ function resultAnswer(context, data) {
     answer: [
       `${name ? `${name}, ` : ""}${context.test_name}: ${context.value ?? ""} ${context.unit || ""} — ${flagText(context.flag)}.`,
       historyCount > 1 ? `По этому показателю у вас есть ${historyCount} значения в динамике.` : "Повторных значений по этому показателю пока недостаточно для оценки динамики.",
-      "Без подтверждённого сценария из подключённой базы я не буду придумывать причину отклонения. Могу показать, какие связанные показатели уже есть в ваших данных и на какие документы опирается разбор."
+      "Без подтверждённого сценария из подключённой базы я не буду придумывать причину отклонения."
     ].join("\n"),
     actions: [],
     basis: buildBasis("result_explanation", context, { patientData: compactPatientData(data), chainLabel: "Разбор результата" })
@@ -256,12 +265,12 @@ function detectIntent(message, requestedMode, context) {
   const text = normalize(message);
   if (!text) return "empty";
   if (/^(привет|здравствуй|здравствуйте|добрый день|доброе утро|добрый вечер|как дела\??|как ты\??|че как\??|что нового\??)$/i.test(text)) return "casual";
+  if (/(поговорим|поговорить|о чем[- ]?то другом|не про анализ|другая тема|сменим тему)/i.test(text)) return "casual";
   if (/(коротк.*свод|кратк.*свод|собери.*свод|сводк.*для врача|общая картина|что у меня по анализам)/i.test(text)) return "summary";
   if (/(что.*требует внимания|что.*важн|на что.*обратить|что.*не так|отклонен|вне.*диапаз|выше|ниже)/i.test(text) && !context?.test_name) return "attention";
   if (/(чего не хватает|каких данных|недостаточно данных|что уточнить)/i.test(text)) return "missing";
   if (/(вопрос.*врач|что обсудить.*врач|подготов.*врач|на прием)/i.test(text)) return "doctor_questions";
   if (context?.test_name && /(почему|что значит|объясни|влияет|связан|динамик|референс|показател|результат|анализ)/i.test(text)) return "result";
-  // Mode is only a hint now, never an unconditional command.
   if (requestedMode === "result_explanation" && context?.test_name) return "result";
   if (requestedMode === "doctor_questions" && /(врач|прием|вопрос|обсуд)/i.test(text)) return "doctor_questions";
   return "unknown";
@@ -282,15 +291,14 @@ async function chat(payload = {}, patientId) {
   if (intent === "result") return responseEnvelope(resultAnswer(context, data), "result_explanation");
   if (intent === "empty") {
     return responseEnvelope({
-      answer: "Напишите вопрос своими словами. Я могу разобрать конкретный показатель, коротко свести анализы или показать, что сейчас требует внимания.",
+      answer: "Напишите вопрос своими словами. Я могу разобрать конкретный показатель, коротко свести анализы или просто поддержать короткий разговор.",
       actions: [],
       basis: buildBasis("empty_question", context)
     }, "assistant_chat");
   }
 
-  const name = firstName(data.patient || {});
   return responseEnvelope({
-    answer: `${name ? `${name}, ` : ""}я не хочу угадывать, что именно вы имеете в виду. Спросите, например: «что здесь самое важное?», «что значит D-димер?» или «собери короткую сводку».`,
+    answer: "Я понял вопрос не до конца. Можно переформулировать его одной фразой — если речь о показателе из ваших анализов, просто назовите его.",
     actions: [],
     basis: buildBasis("clarification", context, { patientData: compactPatientData(data), chainLabel: "Уточнение запроса" })
   }, "assistant_chat");
