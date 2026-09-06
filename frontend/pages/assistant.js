@@ -144,6 +144,9 @@ function assistantContextFromLab(lab) {
     unit: lab.unit,
     flag: lab.flag,
     report_date: lab.latestDate,
+    reference_low: lab.referenceLow ?? lab.reference_low ?? lab.refLow ?? lab.ref_low ?? null,
+    reference_high: lab.referenceHigh ?? lab.reference_high ?? lab.refHigh ?? lab.ref_high ?? null,
+    reference: lab.reference || lab.referenceText || lab.reference_text || null,
     history: Array.isArray(lab.history)
       ? lab.history.map(row => ({
         date: row.date,
@@ -483,9 +486,7 @@ window.Pages.assistant = async function renderAssistant() {
     AssistantState.pending = true;
     window.App.render();
     try {
-      const historyPrompt = assistantHistoryPrompt(AssistantState.context);
-      const apiMessage = historyPrompt ? `${historyPrompt}\n\nВопрос пациента: ${question}` : question;
-      const response = await HealthAPI.assistantChat({ message: apiMessage, mode: requestMode, context: AssistantState.context });
+      const response = await HealthAPI.assistantChat({ message: question, mode: requestMode, context: AssistantState.context });
       AssistantState.pending = false;
       AssistantState.messages.push({
         role: "assistant",
@@ -604,8 +605,14 @@ window.Pages.assistant = async function renderAssistant() {
 
   document.querySelectorAll("[data-assistant-question]").forEach(btn => {
     btn.onclick = () => {
-      AssistantState.draft = "";
-      sendQuestion(btn.dataset.assistantQuestion, btn.dataset.assistantPromptMode);
+      const question = btn.dataset.assistantQuestion || "";
+      AssistantState.mode = btn.dataset.assistantPromptMode || AssistantState.mode;
+      assistantInput.value = question;
+      AssistantState.draft = question;
+      syncDraftState();
+      assistantInput.focus();
+      assistantInput.setSelectionRange(question.length, question.length);
+      document.getElementById("assistantForm")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     };
   });
 
