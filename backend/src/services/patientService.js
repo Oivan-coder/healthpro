@@ -1,4 +1,5 @@
 const labService = require("./labService");
+const labReferenceService = require("./labReferenceService");
 const patientRepository = require("../repositories/patientRepository");
 const integrationRepository = require("../repositories/integrationRepository");
 const visitRepository = require("../repositories/visitRepository");
@@ -72,8 +73,10 @@ async function updatePatient(patientId, payload = {}) {
 }
 
 async function getSummary(patientId) {
-  const labs = (await labService.getLabs(patientId)).labs;
-  const abnormal = labs.filter((item) => item.flag !== "normal");
+  const payload = await labService.getLabs(patientId);
+  const labs = (demoPatients.isSyntheticPatient(patientId) ? payload
+    : await labReferenceService.enrichLabs(payload, storagePatientId(patientId))).labs;
+  const abnormal = labs.filter((item) => ["high", "low"].includes(item.flag));
   const normal = labs.filter((item) => item.flag === "normal");
   const visits = demoPatients.isSyntheticPatient(patientId)
     ? demoPatients.getVisits(patientId)

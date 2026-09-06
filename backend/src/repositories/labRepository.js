@@ -22,8 +22,8 @@ function mapTest(row) {
     name: row.name,
     group: row.group_name || row.group,
     unit: row.unit || "",
-    low: Number(row.low_value),
-    high: Number(row.high_value),
+    low: row.low_value == null ? null : Number(row.low_value),
+    high: row.high_value == null ? null : Number(row.high_value),
     loinc: row.loinc || "",
     graphable: Boolean(row.graphable)
   };
@@ -63,7 +63,7 @@ async function getObservations(patientId) {
     const [rows] = await pool.query(`
       SELECT
         COALESCE(t.code, o.source_test_code) AS code,
-        o.value_num AS value,
+        COALESCE(o.value_num, o.value_text) AS value,
         r.report_date AS date,
         o.source_test_code,
         o.mapping_status,
@@ -77,7 +77,7 @@ async function getObservations(patientId) {
     `, params);
     return rows.map((row) => ({
       code: row.code,
-      value: Number(row.value),
+      value: row.value,
       date: toRuDate(row.date),
       sourceTestCode: row.source_test_code,
       mappingStatus: row.mapping_status,
@@ -194,7 +194,7 @@ async function getLabReportById(id, patientId) {
       sourceServiceCode: report.source_service_code,
       name: report.service_name || report.source_service_code || "Неизвестное исследование",
       testCount: observations.length,
-      abnormalCount: observations.filter((item) => item.flag !== "normal" && item.mappingStatus === "mapped").length,
+      abnormalCount: observations.filter((item) => ["high", "low"].includes(item.flag)).length,
       observations
     };
   }, async () => (await buildJsonReports()).find((report) => report.id === id) || null);
@@ -203,9 +203,11 @@ async function getLabReportById(id, patientId) {
 function mapReportObservation(row) {
   const mapped = row.mapping_status !== "unmapped" && row.code;
   const value = row.value === null || row.value === undefined ? row.value_text : Number(row.value);
-  const low = mapped ? Number(row.low_value) : null;
-  const high = mapped ? Number(row.high_value) : null;
-  const flag = mapped && typeof value === "number" ? (value > high ? "high" : value < low ? "low" : "normal") : "unmapped";
+  const low = mapped && row.low_value != null ? Number(row.low_value) : null;
+  const high = mapped && row.high_value != null ? Number(row.high_value) : null;
+  const flag = !mapped ? "unmapped" : typeof value !== "number" || !Number.isFinite(value) ? "info"
+    : high != null && value > high ? "high" : low != null && value < low ? "low"
+    : low != null || high != null ? "normal" : "info";
   return {
     id: row.id,
     code: row.code || row.source_test_code,
@@ -229,7 +231,8 @@ async function getTestHistory(testCode, patientId) {
     const [rows] = await pool.query(`
       SELECT
         r.report_date AS date,
-        o.value_num AS value,
+        r.id AS report_id,
+        COALESCE(o.value_num, o.value_text) AS value,
         t.code,
         t.name,
         t.unit,
@@ -248,10 +251,11 @@ async function getTestHistory(testCode, patientId) {
       name: row.name,
       group: row.group_name,
       unit: row.unit || "",
-      low: Number(row.low_value),
-      high: Number(row.high_value),
+      low: row.low_value == null ? null : Number(row.low_value),
+      high: row.high_value == null ? null : Number(row.high_value),
       loinc: row.loinc || "",
-      value: Number(row.value),
+      reportId: row.report_id,
+      value: row.value,
       date: toRuDate(row.date)
     }));
   }, async () => {

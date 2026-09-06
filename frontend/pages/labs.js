@@ -162,22 +162,22 @@ window.Pages.labs = async function renderLabs() {
           <div class="section-heading"><h2>${reportMode ? "Исследования" : LabState.mode === "abnormal" ? "Показатели внимания" : "Показатели"}</h2><span class="meta-count">${items.length}</span></div>
           ${items.map(item => `<button class="result-item ${item[key] === LabState[selectedKey] ? "selected" : ""}" data-result-key="${e(item[key])}" aria-current="${item[key] === LabState[selectedKey] ? "true" : "false"}">
             <span class="item-title">${e(item.name)}</span>
-            <small>${e(item.date || item.latestDate || "—")}${reportMode ? ` · ${item.testCount || 0} показателей` : ` · ${e(item.group || "")}`}</small>
+            <small>${e(item.date || item.latestDate || "—")}${reportMode ? ` · ${item.testCount || 0} ${Cabinet.plural(item.testCount || 0,"показатель","показателя","показателей")}` : ` · ${e(item.group || "")}`}</small>
             <span class="result-item-bottom">${reportMode ? `<span class="result-status ${item.abnormalCount ? "attention" : "normal"}">${item.abnormalCount ? `${item.abnormalCount} внимания` : "Нет показателей внимания"}</span><small>${e(reportStatusText(item.status))}</small>` : `<span class="measure">${value(item)}</span>${status(item.flag)}`}</span>
           </button>`).join("") || `<p class="empty-copy">${query ? "Ничего не найдено. Попробуйте другой запрос." : "Пока нет результатов в этом разделе."}</p>`}
         </aside>
         <div class="lab-detail workspace-section" id="resultDetail">
           ${selected && reportMode ? `
             <header class="section-heading"><div><h2>${e(selected.name)}</h2><p class="section-note">${e(selected.date)} · ${e(reportStatusText(selected.status))}</p></div></header>
-            <p class="report-summary">${selected.testCount || 0} показателей · ${selected.abnormalCount || 0} внимания. Оценка дана по референсам лаборатории, это не диагноз.</p>
+            <p class="report-summary">${selected.testCount || 0} ${Cabinet.plural(selected.testCount || 0,"показатель","показателя","показателей")} · ${selected.abnormalCount || 0} внимания. Оценка дана по референсам лаборатории, это не диагноз.</p>
             <div class="compact-table-wrap"><table class="compact-table observation-table"><thead><tr><th>Показатель</th><th>Значение</th><th>Единица</th><th>Референс</th><th>Статус</th><th><span class="sr-only">Действия</span></th></tr></thead><tbody>${(selected.observations || []).map(rowMarkup).join("")}</tbody></table></div>
             <div class="quick-links report-file-actions"><button class="btn secondary" data-report-pdf-id="${e(selected.id)}" data-report-pdf-name="${e(selected.name)}">Скачать оригинальный бланк</button></div>
           ` : selected ? `
             <header class="section-heading"><div><span class="eyebrow">${e(selected.group || "Показатель")}</span><h2>${e(selected.name)}</h2></div>${favoriteButton(selected.code,favorites)}</header>
-            <div class="indicator-summary"><span class="favorite-value">${value(selected)}</span>${status(selected.flag)}<span class="section-note">Референс: ${reference(selected)} ${e(selected.unit || "")} · ${e(selected.latestDate || "—")}</span></div>
+            <div class="indicator-summary"><span class="favorite-value">${value(selected)}</span>${status(selected.flag)}<span class="section-note">Референс: ${reference(selected)} · ${e(selected.latestDate || "—")}</span></div>
             ${selected.interpretation ? `<p class="report-summary">${e(selected.interpretation)}</p>` : ""}
             ${history.filter(point => Cabinet.numeric(point.value) !== null).length >= 2 ? `<canvas id="labChart" class="trend-canvas detail-chart" role="img" aria-label="Динамика ${e(selected.name)}"></canvas>` : `<p class="empty-copy">${history.length < 2 ? "Для графика нужен ещё один результат." : "Для графика нужны числовые результаты."}</p>`}
-            <div class="compact-table-wrap"><table class="compact-table"><caption>История значений</caption><thead><tr><th>Дата</th><th>Значение</th><th>Статус</th></tr></thead><tbody>${[...history].reverse().map(point => `<tr><td>${e(point.date)}</td><td class="measure">${value({...point,unit:selected.unit})}</td><td>${status(point.flag)}</td></tr>`).join("")}</tbody></table></div>
+            <div class="compact-table-wrap"><table class="compact-table value-history"><caption>История значений</caption><thead><tr><th>Дата</th><th>Значение</th><th>Статус</th></tr></thead><tbody>${[...history].reverse().map(point => `<tr><td>${e(point.date)}</td><td class="measure">${value({...point,unit:selected.unit})}</td><td>${status(point.flag)}</td></tr>`).join("")}</tbody></table></div>
             <div class="quick-links"><button class="btn secondary" data-explain-test="${e(selected.code)}">Спросить помощника</button></div>
             ${selected.interpretationRequirements?.length ? `<details class="trend-data"><summary>Что важно для интерпретации</summary><p>${e(selected.interpretationRequirements.join("; "))}</p></details>` : ""}
           ` : `<h2>${query ? "Ничего не найдено" : "Результатов пока нет"}</h2><p class="empty-copy">${query ? "Измените поиск или переключите вкладку." : "Здесь появятся детали лабораторного исследования."}</p>`}
@@ -224,7 +224,7 @@ window.Pages["lab-history"] = async function renderLabHistory() {
   const table = items => `<div class="compact-table-wrap"><table class="compact-table history-values"><thead><tr><th>Дата</th><th>Группа</th><th>Показатель</th><th>Значение</th><th>Референс</th><th>Статус</th><th><span class="sr-only">Действия</span></th></tr></thead><tbody>${items.map(rowMarkup).join("")}</tbody></table></div>`;
   const dates = [...new Set(filtered.map(row => row.date))];
   UI.root().innerHTML = `<section class="cabinet-page history-page">
-    <div class="section-heading"><h2>История значений</h2><p class="section-note">${rows.length} результатов · ${new Set(rows.map(row => row.code)).size} показателей · ${rows.filter(attention).length} внимания</p></div>
+    <div class="section-heading"><h2>История значений</h2><p class="section-note">${rows.length} ${Cabinet.plural(rows.length,"результат","результата","результатов")} · ${new Set(rows.map(row => row.code)).size} ${Cabinet.plural(new Set(rows.map(row => row.code)).size,"показатель","показателя","показателей")} · ${rows.filter(attention).length} внимания</p></div>
     <div class="history-controls"><label class="search-field"><span class="sr-only">Поиск по истории</span><input type="text" id="historySearch" value="${e(LabHistoryState.query)}" placeholder="Показатель, группа, код или дата" autocomplete="off"></label>
       <div class="workspace-tabs" role="group" aria-label="Вид истории">${[["table","Таблица"],["dates","По датам"]].map(([view,label]) => `<button class="${LabHistoryState.view === view ? "active" : ""}" aria-pressed="${LabHistoryState.view === view}" data-history-view="${view}">${label}</button>`).join("")}</div>
     </div>

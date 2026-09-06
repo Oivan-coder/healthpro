@@ -2,7 +2,7 @@ const repository = require("../repositories/manualLabRepository");
 const { resolveReference, referenceLabel } = require("./manualLabService");
 
 function statusForReference(value, reference) {
-  const numeric = Number(value);
+  const numeric = value == null || String(value).trim() === "" ? NaN : Number(String(value).replace(",", "."));
   if (!reference || !Number.isFinite(numeric)) return "info";
   const low = reference.low;
   const high = reference.high;
@@ -25,7 +25,7 @@ function interpretationFor(item) {
   if (item.flag === "low") {
     return `${item.name}: значение ниже выбранного референсного интервала. Это не диагноз; результат требует врачебной интерпретации.`;
   }
-  return item.interpretation;
+  return `${item.name}: числовая оценка по референсу недоступна.`;
 }
 
 async function referenceMapForCodes(codes, patient, selectionsByTestId = {}) {
@@ -37,6 +37,22 @@ async function referenceMapForCodes(codes, patient, selectionsByTestId = {}) {
       return [test.code, { test, resolved }];
     });
   return new Map(entries);
+}
+
+// A report's saved choice is historical context. Reuse it on every screen,
+// instead of silently replacing it after a patient's profile changes.
+async function observationReferenceResolver(codes, patient, points) {
+  const tests = await repository.getReferenceDataByCodes([...new Set(codes)]);
+  const byCode = new Map(tests.map(test => [test.code, test]));
+  const reportIds = [...new Set(points.map(point => point.reportId).filter(Boolean))];
+  const selections = new Map(await Promise.all(reportIds.map(async id =>
+    [id, await repository.getReportReferenceSelections(id)])));
+  return (code, point) => {
+    const test = byCode.get(code);
+    if (!test?.references?.length) return null;
+    const preferred = selections.get(point.reportId)?.[test.id];
+    return {test, resolved:resolveReference(test.references, patient, preferred)};
+  };
 }
 
 function applyReference(item, entry) {
@@ -53,6 +69,7 @@ function applyReference(item, entry) {
     referenceGroup: reference?.group || "",
     referenceLabel: referenceLabel(reference, item.unit || test.unit),
     referenceStatus: resolved.status,
+    referenceId: reference?.id || null,
     flag
   };
   if (Object.prototype.hasOwnProperty.call(item, "interpretation")) {
@@ -65,16 +82,18 @@ async function enrichLabs(payload, patientId) {
   if (!payload?.labs?.length || !patientId) return payload;
   const patient = await repository.getPatient(patientId);
   if (!patient) return payload;
-  const map = await referenceMapForCodes(payload.labs.map((item) => item.code), patient);
+  const resolve = await observationReferenceResolver(payload.labs.map(item => item.code), patient,
+    payload.labs.flatMap(lab => lab.history || []));
   return {
     ...payload,
-    catalog: (payload.catalog || []).map((item) => applyReference(item, map.get(item.code))),
+    catalog: (payload.catalog || []).map(item => applyReference(item, resolve(item.code, item))),
     labs: payload.labs.map((lab) => {
-      const entry = map.get(lab.code);
+      const points = lab.history || [];
+      const entry = resolve(lab.code, points[points.length - 1] || lab);
       const enriched = applyReference(lab, entry);
       return {
         ...enriched,
-        history: (lab.history || []).map((point) => applyReference(point, entry))
+        history: points.map(point => applyReference(point, resolve(lab.code, point)))
       };
     })
   };
@@ -84,21 +103,22 @@ async function enrichHistory(items, patientId) {
   if (!Array.isArray(items) || !items.length || !patientId) return items;
   const patient = await repository.getPatient(patientId);
   if (!patient) return items;
-  const map = await referenceMapForCodes(items.map((item) => item.code), patient);
-  return items.map((item) => applyReference(item, map.get(item.code)));
+  const resolve = await observationReferenceResolver(items.map(item => item.code), patient, items);
+  return items.map(item => applyReference(item, resolve(item.code, item)));
 }
 
 async function enrichTestHistory(history, patientId) {
   if (!history?.code || !patientId) return history;
   const patient = await repository.getPatient(patientId);
   if (!patient) return history;
-  const map = await referenceMapForCodes([history.code], patient);
-  const entry = map.get(history.code);
+  const points = history.history || [];
+  const resolve = await observationReferenceResolver([history.code], patient, points);
+  const entry = resolve(history.code, points[points.length - 1] || history);
   if (!entry) return history;
   const enriched = applyReference(history, entry);
   return {
     ...enriched,
-    history: (history.history || []).map((point) => applyReference(point, entry))
+    history: points.map(point => applyReference(point, resolve(history.code, point)))
   };
 }
 

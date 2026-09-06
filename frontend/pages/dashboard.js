@@ -20,7 +20,7 @@ window.Pages.dashboard = async function renderDashboard() {
   UI.root().innerHTML = `
     <div class="cabinet-page today-page">
       <section class="patient-overview">
-        <div><span class="eyebrow">Ваш кабинет</span><h2>${e(UI.firstName(data.patient))}, добрый день</h2>
+        <div><span class="eyebrow">Ваш кабинет</span><h2>Добрый день</h2>
           <p class="muted">${labs.length ? `${focus.length} ${Cabinet.plural(focus.length,"показатель","показателя","показателей")} внимания · Последний результат: ${e(latest[0]?.date || "—")}` : "Лабораторных результатов пока нет"}</p>
         </div>
         <button class="btn primary" data-route-action="labs" data-lab-mode="reports">Посмотреть анализы</button>
@@ -30,7 +30,7 @@ window.Pages.dashboard = async function renderDashboard() {
           <div class="section-heading"><h2>Последние результаты</h2><button class="btn ghost small" data-route-action="labs" data-lab-mode="reports">Все отчёты</button></div>
           <div class="plain-list">${latest.map(report => `
             <button class="report-link" data-open-report="${e(report.id)}">
-              <span><span class="item-title">${e(report.name)}</span><small>${e(report.date)} · ${report.testCount || 0} показателей</small></span>
+              <span><span class="item-title">${e(report.name)}</span><small>${e(report.date)} · ${report.testCount || 0} ${Cabinet.plural(report.testCount || 0,"показатель","показателя","показателей")}</small></span>
               <span class="result-status ${report.abnormalCount ? "attention" : "normal"}">${report.abnormalCount ? `${report.abnormalCount} внимания` : "Готово"}</span>
             </button>`).join("") || `<p class="empty-copy">Здесь появятся ваши исследования.</p>`}</div>
         </section>

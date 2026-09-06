@@ -5,7 +5,9 @@ window.SearchPicker = function SearchPicker(input, selected, {items, label = ite
   list.className = "search-options";
   list.id = input.id + "Options"; list.setAttribute("role","listbox"); list.hidden = true;
   const wrap = document.createElement("div"); wrap.className = "search-picker";
-  input.parentNode.insertBefore(wrap,input); wrap.append(input,list);
+  // Keep options outside the label: its default click action would refocus the search.
+  const field = input.closest("label") || input;
+  field.parentNode.insertBefore(wrap,field); wrap.append(field,list);
   input.setAttribute("role","combobox"); input.setAttribute("aria-autocomplete","list");
   input.setAttribute("aria-expanded","false"); input.setAttribute("aria-controls",list.id);
   const normalize = value => String(value || "").toLowerCase().replace(/ё/g,"е").trim();
@@ -17,8 +19,10 @@ window.SearchPicker = function SearchPicker(input, selected, {items, label = ite
   }
   function refresh(open = false) {
     if (input.disabled) return close();
-    const query = normalize(input.value);
-    const matches = items().filter(item => !query || normalize(terms(item)).includes(query));
+    const available = items();
+    const chosen = available.find(item => String(item.id) === selected.value);
+    const query = chosen && input.value === label(chosen) ? "" : normalize(input.value);
+    const matches = available.filter(item => !query || normalize(terms(item)).includes(query));
     shown = matches.slice(0,8); active = -1; input.removeAttribute("aria-activedescendant");
     list.replaceChildren();
     shown.forEach((item,index) => {
@@ -26,7 +30,7 @@ window.SearchPicker = function SearchPicker(input, selected, {items, label = ite
       option.id = list.id + "-" + index; option.setAttribute("role","option");
       option.setAttribute("aria-selected","false"); option.textContent = label(item);
       option.addEventListener("mousedown",event => event.preventDefault());
-      option.addEventListener("click",() => choose(index));
+      option.addEventListener("click",event => {event.preventDefault();choose(index);});
       list.append(option);
     });
     const note = document.createElement("small");note.className = "picker-note";
@@ -42,7 +46,8 @@ window.SearchPicker = function SearchPicker(input, selected, {items, label = ite
     if (event.key === "Escape") {event.preventDefault();close();return;}
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault(); if (list.hidden) refresh(true); if (!shown.length) return;
-      active = (active + (event.key === "ArrowDown" ? 1 : -1) + shown.length) % shown.length;
+      active = active < 0 ? (event.key === "ArrowDown" ? 0 : shown.length - 1)
+        : (active + (event.key === "ArrowDown" ? 1 : -1) + shown.length) % shown.length;
       [...list.querySelectorAll('[role="option"]')].forEach((option,index) => option.setAttribute("aria-selected",String(index === active)));
       const option = list.children[active];input.setAttribute("aria-activedescendant",option.id);option.scrollIntoView?.({block:"nearest"});
     } else if (event.key === "Enter" && !list.hidden) {

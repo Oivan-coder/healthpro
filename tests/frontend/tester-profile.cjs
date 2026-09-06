@@ -8,6 +8,11 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
 (async () => {
   const dom = new JSDOM(fs.readFileSync(path.join(root,'index.html'),'utf8'),{url:'https://healthpro.test/',runScripts:'outside-only',pretendToBeVisual:true});
   const w = dom.window, d = w.document;
+  const NativeDate = w.Date;
+  w.Date = class extends NativeDate {
+    constructor(...args) { super(...(args.length ? args : ['2026-09-05T12:00:00Z'])); }
+    static now() { return new NativeDate('2026-09-05T12:00:00Z').getTime(); }
+  };
   w.scrollTo = () => {};
   w.HTMLElement.prototype.scrollIntoView = () => {};
   w.eval(fs.readFileSync(path.join(root,'components/ui.js'),'utf8'));
@@ -63,6 +68,14 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   const testSearch=d.getElementById('manualTestSearch');
   testSearch.value='GLU';testSearch.dispatchEvent(new w.Event('input',{bubbles:true}));
   d.querySelector('#manualTestSearchOptions [role="option"]').click();
+  assert.equal(d.activeElement.id,'manualValueInput');
+  assert.equal(d.getElementById('manualTestSearchOptions').closest('label'),null);
+  testSearch.focus();
+  assert(d.querySelector('#manualTestSearchOptions [role="option"]'));
+  assert(!d.getElementById('manualTestSearchOptions').textContent.includes('Ничего не найдено'));
+  testSearch.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowUp',bubbles:true}));
+  testSearch.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));
+  assert.equal(d.activeElement.id,'manualValueInput');
   d.getElementById('manualValueInput').value='6,2';
   d.getElementById('manualResultForm').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
   assert.equal(w.ManualLabEntryState.entries.length,1);
