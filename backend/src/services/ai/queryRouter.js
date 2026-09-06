@@ -1,16 +1,31 @@
 // Limited offline/outage fallback. The enabled LLM does not pass through these rules.
 const mock = require("./providers/mockProvider");
+
+function normalize(message) {
+  return String(message || "").trim().toLowerCase().replace(/ё/g,"е");
+}
+
 function profileField(message) {
-  const text=message.toLowerCase().replace(/ё/g,"е");
+  const text=normalize(message);
   if(/сколько.*лет|скока.*лет|возраст/.test(text)) return "age";
   if(/как.*(?:меня|мое).*зовут|мое имя/.test(text)) return "name";
   if(/мой пол|какой.*пол|пол.*у меня/.test(text)) return "sex";
   if(/когда.*родил|дата.*рожд|день.*рожд/.test(text)) return "birthDate";
   return null;
 }
+
 function route(payload,data) {
-  const field=profileField(payload.message);
+  const text=normalize(payload.message);
+  const field=profileField(text);
   if(field) return {intent:"profile",profileField:field};
+
+  // This branch exists only when the model is disabled/unavailable. Keep it small,
+  // but do not make ordinary conversation or broad health questions feel broken.
+  if(/^(как (?:твои )?дела|как ты|как жизнь|че как|чо как|что нового|как делишки)[?.!]*$/.test(text))
+    return {intent:"casual"};
+  if(/^(че|чо|что) со мной[?.!]*$|как я вообще[?.!]*$|что у меня (?:вообще )?со здоровьем[?.!]*$|что скажешь (?:в целом )?по здоровью[?.!]*$/.test(text))
+    return {intent:"summary"};
+
   const selected=(data.labs||[]).find(lab=>lab.code===payload.context?.test_code);
   const context=mock.contextFromLab(selected);
   const detected=mock.detectIntent(payload.message,"assistant_chat",context,data);
