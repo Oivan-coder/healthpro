@@ -99,6 +99,7 @@ window.App = (() => {
   async function init() {
     bindLogin();
     bindNavigation();
+    bindSwipeNavigation();
     bindModals();
     bindPasswordChange();
 
@@ -322,6 +323,71 @@ window.App = (() => {
       if (routeAllowed(route) && routeRenderers()[route]) navigate(route);
       else navigate(defaultRoute());
     });
+  }
+
+  function bindSwipeNavigation() {
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+    let mode = "";
+
+    const reset = () => {
+      tracking = false;
+      mode = "";
+      startX = 0;
+      startY = 0;
+    };
+
+    document.addEventListener("touchstart", (event) => {
+      if (!currentUser || !compactNavigation.matches || event.touches.length !== 1) return;
+      const target = event.target;
+      if (target?.closest?.("input, textarea, select, [contenteditable='true'], .modal")) return;
+
+      const touch = event.touches[0];
+      const sidebarOpen = document.getElementById("sidebar").classList.contains("open");
+      startX = touch.clientX;
+      startY = touch.clientY;
+
+      if (sidebarOpen) {
+        tracking = true;
+        mode = "close";
+        return;
+      }
+
+      // iOS Safari owns the extreme left edge for browser Back. Start a little
+      // inside the page so the application gesture does not compete with it.
+      if (startX >= 28 && startX <= 110) {
+        tracking = true;
+        mode = "open";
+      }
+    }, { passive: true });
+
+    document.addEventListener("touchmove", (event) => {
+      if (!tracking || event.touches.length !== 1) return;
+      const touch = event.touches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      if (Math.abs(dx) > 22 && Math.abs(dx) > Math.abs(dy) * 1.35) {
+        event.preventDefault();
+      }
+    }, { passive: false });
+
+    document.addEventListener("touchend", (event) => {
+      if (!tracking || !event.changedTouches.length) {
+        reset();
+        return;
+      }
+      const touch = event.changedTouches[0];
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      const horizontal = Math.abs(dx) >= 64 && Math.abs(dx) > Math.abs(dy) * 1.35;
+
+      if (horizontal && mode === "open" && dx > 0) setSidebarOpen(true);
+      if (horizontal && mode === "close" && dx < 0) setSidebarOpen(false);
+      reset();
+    }, { passive: true });
+
+    document.addEventListener("touchcancel", reset, { passive: true });
   }
 
   function bindModals() {
