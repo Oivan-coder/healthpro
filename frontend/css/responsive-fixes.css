@@ -46,6 +46,18 @@
 .report-link > span:first-child { flex: 1; }
 .report-link small { display: block; color: #5e6c7e; margin-top: 4px; }
 .report-link > .measure { flex: 0 1 auto; }
+.discussion-section { container: discussion / inline-size; }
+.discussion-result { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px 20px; align-items: start; }
+.discussion-label { display: grid; gap: 5px; }
+.discussion-measure { display: grid; justify-items: end; gap: 5px; text-align: right; }
+.discussion-value { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: flex-end; gap: 4px 6px; font-size: 24px; line-height: 1.25; }
+.discussion-value small { margin: 0; font-size: 13px; line-height: 1.5; font-weight: 400; }
+.discussion-result .discussion-reference { margin: 0; font-size: 12px; line-height: 1.5; font-weight: 400; color: #657484; }
+@container discussion (max-width: 380px) {
+  .discussion-result { grid-template-columns: minmax(0,1fr); gap: 12px; }
+  .discussion-measure { justify-items: start; text-align: left; }
+  .discussion-value { flex-direction: column; align-items: flex-start; gap: 2px; }
+}
 .favorite-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 24px; }
 .favorite-trend { padding: 4px 0; }
 .favorite-trend .section-heading { margin-bottom: 10px; }

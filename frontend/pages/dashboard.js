@@ -16,6 +16,13 @@ window.Pages.dashboard = async function renderDashboard() {
   const labs = data.labs || [];
   const focus = labs.filter(attention);
   const favorites = getFavoriteLabCodes().map(code => labs.find(lab => lab.code === code)).filter(Boolean);
+  const referenceRange = lab => {
+    const low = Cabinet.numeric(lab.low), high = Cabinet.numeric(lab.high);
+    if (low === null && high === null) return "";
+    const range = low !== null && high !== null ? `${low}–${high}` : low !== null ? `от ${low}` : `до ${high}`;
+    const unit = String(lab.unit || "").trim().replace(/^\((.*)\)$/, "$1").trim();
+    return `${range}${unit ? ` ${unit}` : ""}`;
+  };
   const latest = [...reports].sort((a,b) => parseRuDate(b.date) - parseRuDate(a.date)).slice(0,3);
   UI.root().innerHTML = `
     <div class="cabinet-page today-page">
@@ -34,13 +41,18 @@ window.Pages.dashboard = async function renderDashboard() {
               <span class="result-status ${report.abnormalCount ? "attention" : "normal"}">${report.abnormalCount ? `${report.abnormalCount} внимания` : "Готово"}</span>
             </button>`).join("") || `<p class="empty-copy">Здесь появятся ваши исследования.</p>`}</div>
         </section>
-        <section class="workspace-section">
+        <section class="workspace-section discussion-section">
           <div class="section-heading"><h2>Что стоит обсудить</h2><span class="meta-count">${focus.length}</span></div>
           <p class="section-note">Отклонение от референса — не диагноз. Оценить результат поможет врач.</p>
-          <div class="plain-list">${focus.slice(0,3).map(lab => `
-            <button class="report-link" data-route-action="labs" data-lab-mode="tests" data-lab-code="${e(lab.code)}">
-              <span><span class="item-title">${e(lab.name)}</span>${status(lab.flag)}</span><span class="measure">${value(lab)}</span>
-            </button>`).join("") || `<p class="empty-copy">${labs.length ? "Показателей внимания нет. Результаты без референса можно посмотреть в анализах." : "Пока нет данных для оценки."}</p>`}</div>
+          <div class="plain-list">${focus.slice(0,3).map(lab => {
+            const reference = referenceRange(lab);
+            return `<button class="report-link discussion-result" data-route-action="labs" data-lab-mode="tests" data-lab-code="${e(lab.code)}">
+              <span class="discussion-label"><span class="item-title">${e(lab.name)}</span>${status(lab.flag)}</span>
+              <span class="discussion-measure"><span class="measure discussion-value">${value(lab)}</span>
+                ${reference ? `<small class="discussion-reference">Реф.: ${e(reference)}</small>` : ""}
+              </span>
+            </button>`;
+          }).join("") || `<p class="empty-copy">${labs.length ? "Показателей внимания нет. Результаты без референса можно посмотреть в анализах." : "Пока нет данных для оценки."}</p>`}</div>
           ${focus.length > 3 ? `<button class="btn ghost small" data-route-action="labs" data-lab-mode="abnormal">Все показатели внимания</button>` : ""}
         </section>
       </div>
