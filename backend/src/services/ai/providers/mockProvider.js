@@ -3,6 +3,22 @@ const labService = require("../../labService");
 const appointmentService = require("../../appointmentService");
 const reportService = require("../../reportService");
 const patientHistoryService = require("../../patientHistoryService");
+const demoPatients = require("../../../data/demoPatients");
+const {storagePatientId} = require("../../../utils/demoPatientContext");
+
+function patientAge(patient, now = new Date()) {
+  const raw = String(patient.birthDate || "");
+  const ru = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(raw);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  const parts = ru ? [Number(ru[3]),Number(ru[2]),Number(ru[1])] : iso ? iso.slice(1).map(Number) : null;
+  if (!parts) return patient.age ?? null;
+  const [year,month,day] = parts;
+  const date = new Date(Date.UTC(year,month-1,day));
+  if(date.getUTCFullYear()!==year || date.getUTCMonth()!==month-1 || date.getUTCDate()!==day) return null;
+  const beforeBirthday = now.getUTCMonth()+1 < month || (now.getUTCMonth()+1===month && now.getUTCDate()<day);
+  const age = now.getUTCFullYear()-year-Number(beforeBirthday);
+  return age>=0 && age<=120 ? age : null;
+}
 
 const SAFETY = [
   "Это не диагноз.",
@@ -77,12 +93,15 @@ function contextFromLab(lab) {
   return {
     test_code: lab.code || null,
     test_name: lab.name,
-    value: lab.latestValue,
+    value: lab.latestValue ?? lab.value ?? null,
     unit: lab.unit || null,
     flag: lab.flag || null,
-    report_date: lab.latestDate || null,
+    report_date: lab.latestDate || lab.date || null,
+    reference_low: lab.low ?? lab.reference_low ?? null,
+    reference_high: lab.high ?? lab.reference_high ?? null,
+    reference: lab.referenceLabel || lab.reference || null,
     history: Array.isArray(lab.history)
-      ? lab.history.map(row => ({ date: row.date, value: row.value, flag: row.flag }))
+      ? lab.history.map(row => ({ date: row.date, value: row.value, flag: row.flag, unit: row.unit || lab.unit, reference: row.referenceLabel || null, low: row.low ?? null, high: row.high ?? null }))
       : []
   };
 }
@@ -119,14 +138,17 @@ async function buildPatientSummaryContext(patientId) {
     reportService.getDocuments(patientId),
     patientHistoryService.list(patientId, 20).catch(() => [])
   ]);
+  // The legacy document repositories return a shared demo catalog. Only records
+  // with explicit patient ownership (or built-in synthetic fixtures) are personal.
+  const owned = item => demoPatients.isSyntheticPatient(patientId) || String(item.patientId || item.patient_id || "") === String(storagePatientId(patientId));
   return {
-    patient: summary.patient || {},
+    patient: {...summary.patient, age:patientAge(summary.patient || {})},
     labs: summary.labs || [],
     abnormal: summary.abnormal || [],
     labReports: labReports || [],
     visits: visits || [],
-    reports: reports || [],
-    documents: documents || [],
+    reports: (reports || []).filter(owned),
+    documents: (documents || []).filter(owned),
     historyEvents: historyEvents || []
   };
 }
@@ -386,7 +408,6 @@ function detectIntent(message, requestedMode, context, data) {
   if (/(чего не хватает|каких данных|недостаточно данных|что уточнить)/i.test(text)) return { kind: "missing" };
   if (/(вопрос.*врач|что обсудить.*врач|подготов.*врач|на прием)/i.test(text)) return { kind: "doctor_questions" };
   if (context?.test_name && /(почему|что значит|объясни|влияет|связан|динамик|референс|показател|результат|анализ|он|его|этот)/i.test(text)) return { kind: "result", context };
-  if (requestedMode === "result_explanation" && context?.test_name) return { kind: "result", context };
   if (requestedMode === "doctor_questions" && /(врач|прием|вопрос|обсуд)/i.test(text)) return { kind: "doctor_questions" };
   return { kind: "unknown" };
 }
@@ -422,4 +443,4 @@ async function chat(payload = {}, patientId) {
   }, "assistant_chat");
 }
 
-module.exports = { chat, buildPatientSummaryContext, firstName, sexText, contextFromLab, findLabFromMessage };
+module.exports = { chat, buildPatientSummaryContext, firstName, sexText, contextFromLab, findLabFromMessage, patientAge, detectIntent, humanGroup };

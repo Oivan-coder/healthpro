@@ -21,7 +21,15 @@ async function chat(req, res, next) {
   try {
     const patientId = getDemoPatientId(req);
     const message = req.body?.message || "";
-    const pending = pendingHistorySuggestions.get(patientId);
+    const stored = pendingHistorySuggestions.get(patientId);
+    const lastTurn = Array.isArray(req.body?.history) ? req.body.history.at(-1) : null;
+    const matchesConversation = !Array.isArray(req.body?.history) ||
+      (lastTurn?.role === "assistant" && typeof lastTurn.content === "string" &&
+        lastTurn.content.includes(`Добавить в анамнез: «${stored?.suggestion.title}»?`));
+    const pending = stored && stored.expiresAt > Date.now() && matchesConversation ? stored.suggestion : null;
+    // A confirmation is valid only for the immediately preceding suggestion.
+    // A new topic, a refusal, or expiry cancels it; consume before an async write.
+    pendingHistorySuggestions.delete(patientId);
 
     if (pending && isYes(message)) {
       const saved = await patientHistoryService.create(patientId, pending);
@@ -68,8 +76,9 @@ async function chat(req, res, next) {
     }
 
     const result = await assistantService.chat(req.body || {}, patientId);
-    const historySuggestion = patientHistoryService.suggestFromMessage(message);
-    if (historySuggestion) pendingHistorySuggestions.set(patientId, historySuggestion);
+    const historySuggestion = Object.hasOwn(result, "historySuggestion")
+      ? result.historySuggestion : patientHistoryService.suggestFromMessage(message);
+    if (historySuggestion) pendingHistorySuggestions.set(patientId, {suggestion:historySuggestion,expiresAt:Date.now()+5*60*1000});
 
     const answer = historySuggestion
       ? `${result.answer}\n\nЯ заметил информацию, которая может быть полезна для дальнейшей интерпретации. Добавить в анамнез: «${historySuggestion.title}»? Напишите «да» или «нет».`

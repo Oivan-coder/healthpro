@@ -38,7 +38,11 @@ function aliasMatches(haystack, alias) {
 
 function findGroup(context = {}) {
   const haystack = normalize(`${context.test_code || ""} ${context.test_name || ""}`);
-  return GROUPS.find(group => (group.aliases || []).some(alias => aliasMatches(haystack, alias))) || null;
+  const candidates = GROUPS.map(group => ({group, score:Math.max(0,...(group.aliases || [])
+    .filter(alias => aliasMatches(haystack,alias)).map(alias => normalize(alias).length))}))
+    .filter(item => item.score>0).sort((a,b) => b.score-a.score);
+  if(!candidates.length || candidates[0].score === candidates[1]?.score) return null;
+  return candidates[0].group;
 }
 
 function documentList(group) {
@@ -79,13 +83,13 @@ function sourceList(group) {
 }
 
 function referenceText(context = {}) {
-  const low = context.reference_low ?? context.referenceLow ?? context.ref_low ?? null;
-  const high = context.reference_high ?? context.referenceHigh ?? context.ref_high ?? null;
+  const low = context.reference_low ?? context.low ?? context.referenceLow ?? context.ref_low ?? null;
+  const high = context.reference_high ?? context.high ?? context.referenceHigh ?? context.ref_high ?? null;
   const unit = context.unit ? ` ${context.unit}` : "";
   if (low !== null && high !== null) return `${low}–${high}${unit}`;
   if (low !== null) return `от ${low}${unit}`;
   if (high !== null) return `до ${high}${unit}`;
-  return context.reference || context.reference_text || context.referenceText || "";
+  return context.reference || context.referenceLabel || context.reference_text || context.referenceText || "";
 }
 
 function knowledgeFor(context = {}) {
@@ -98,7 +102,7 @@ function knowledgeFor(context = {}) {
     groupTitle: group.title,
     interpretation: direction
       ? group[direction]
-      : "Показатель оценивают в контексте референсного диапазона, динамики и связанных лабораторных данных.",
+      : "",
     related: [...(group.related || [])],
     documents: documentList(group),
     sources: sourceList(group),

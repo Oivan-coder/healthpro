@@ -1,160 +1,60 @@
-const { getAiConfig } = require("../../config/ai");
-const mockProvider = require("./providers/evidenceProvider");
-const gigachatProvider = require("./providers/gigachatProvider");
-const llmIntentRouter = require("./llmIntentRouter");
-const queryRouter = require("./queryRouter");
+const {getAiConfig} = require("../../config/ai");
+const mock = require("./providers/mockProvider");
+const evidence = require("./providers/evidenceProvider");
+const gigachat = require("./providers/gigachatProvider");
+const router = require("./llmIntentRouter");
+const fallbackRouter = require("./queryRouter");
+const context = require("./assistantContext");
 
-const SAFETY = [
-  "Это не диагноз.",
-  "Не заменяет консультацию врача.",
-  "Не содержит назначений лечения."
-];
-
-function envelope(response, meta) {
+function modeFor(intent) {
+  if(["summary","attention"].includes(intent)) return "patient_summary";
+  if(["lab_result","lab_group"].includes(intent)) return "result_explanation";
+  if(["doctor_questions","missing_context"].includes(intent)) return "doctor_questions";
+  return "assistant_chat";
+}
+async function chat(input={},patientId) {
+  if(!patientId) throw Object.assign(new Error("patient_context_required"),{statusCode:403});
+  const payload=context.sanitizePayload(input);
+  if(!payload.message) throw Object.assign(new Error("message_required"),{statusCode:400});
+  const config=getAiConfig();
+  // One authoritative patient snapshot per request. No client-provided values or patient IDs.
+  const data=await mock.buildPatientSummaryContext(patientId);
+  let route,fallbackReason,reply;
+  const enabled=config.enabled && config.provider==="gigachat";
+  if(enabled) {
+    try {route=await router.classify(payload,data,config.gigachat);}
+    catch {fallbackReason="intent_router_unavailable";}
+  }
+  if(!route) route=fallbackRouter.route(payload,data);
+  let grounding=context.buildGrounding(route,data,config.gigachat?.maxPromptChars);
+  if(enabled && !fallbackReason) {
+    try {reply=await gigachat.chat(payload,route,grounding,config.gigachat);}
+    catch(error) {
+      fallbackReason="answer_validation_or_provider_failed";
+      if(error.message==="answer_off_topic") {
+        route={intent:"clarify"};
+        grounding=context.buildGrounding(route,data,config.gigachat?.maxPromptChars);
+      }
+    }
+  }
+  if(!reply) reply={answer:evidence.answer(route,data),safetyGuardApplied:Boolean(fallbackReason)};
+  const basis=context.basisFor(route,grounding);
+  if(reply.evidenceIds) {
+    const used=grounding.evidence.filter(item=>reply.evidenceIds.includes(item.id));
+    basis.sources=used.flatMap(item=>item.sources);
+    basis.documents=used.flatMap(item=>item.documents);
+    basis.evidenceIds=reply.evidenceIds;
+  }
   return {
-    provider: meta.provider,
-    requestedProvider: meta.requestedProvider || meta.provider,
-    aiEnabled: meta.aiEnabled,
-    providerStatus: meta.providerStatus || "success",
-    fallbackReason: meta.fallbackReason || undefined,
-    mode: response.mode || meta.mode || "assistant_chat",
-    ...response,
-    safety: response.safety || SAFETY
+    ...reply,actions:[],basis,...context.responseContext(route),
+    // Only an unavailable router uses the legacy symptom fallback. A model's null
+    // explicitly means "do not propose a history record", including negations.
+    ...(enabled && fallbackReason!=="intent_router_unavailable"?{historySuggestion:route.historySuggestion||null}:{}),
+    provider:enabled&&!fallbackReason?"gigachat":"mock",requestedProvider:config.provider,
+    aiEnabled:config.enabled,providerStatus:fallbackReason?"fallback":"success",fallbackReason,
+    mode:modeFor(route.intent),
+    router:{intent:route.intent,entityLabel:route.entityLabel||null,confidence:route.confidence??null},
+    safety:["Это не диагноз.","Не заменяет консультацию врача.","Не содержит назначений лечения."]
   };
 }
-
-async function routeWithRules(payload, patientId) {
-  const routed = await queryRouter.route(payload, patientId);
-  return routed.direct ? { direct: routed.direct, payload } : { direct: null, payload: routed.payload };
-}
-
-async function fallbackToMock(payload, patientId, config, fallbackReason) {
-  console.warn("Assistant provider fallback", {
-    requestedProvider: config.provider,
-    fallbackProvider: "mock",
-    reason: fallbackReason
-  });
-
-  let effectivePayload = payload;
-  try {
-    const routed = await routeWithRules(payload, patientId);
-    if (routed.direct) {
-      return envelope(routed.direct, {
-        provider: "atlas",
-        requestedProvider: config.provider,
-        aiEnabled: config.enabled,
-        providerStatus: "fallback",
-        fallbackReason
-      });
-    }
-    effectivePayload = routed.payload;
-  } catch (error) {
-    effectivePayload = payload;
-  }
-
-  const response = await mockProvider.chat(effectivePayload, patientId);
-  return envelope(response, {
-    provider: "mock",
-    requestedProvider: config.provider,
-    aiEnabled: config.enabled,
-    providerStatus: "fallback",
-    fallbackReason
-  });
-}
-
-function routedMode(intent, currentMode) {
-  if (intent === "summary" || intent === "attention") return "patient_summary";
-  if (intent === "doctor_questions" || intent === "missing_context") return "doctor_questions";
-  if (intent === "lab_result" || intent === "lab_group") return "result_explanation";
-  if (intent === "casual" || intent === "general") return "assistant_chat";
-  return currentMode || "assistant_chat";
-}
-
-async function chatWithGigachatRouter(payload, patientId, config) {
-  const route = await llmIntentRouter.classify(payload, patientId, config.gigachat);
-  if (!route) return gigachatProvider.chat({ ...payload, mode: "assistant_chat" }, patientId, config.gigachat);
-
-  if (route.intent === "lab_result" && route.targetLab) {
-    const resolvedContext = llmIntentRouter.contextFromLab(route.targetLab);
-    const response = await mockProvider.evidenceAnswer(resolvedContext, patientId);
-    if (response) {
-      response.resolvedContext = resolvedContext;
-      response.router = {
-        intent: route.intent,
-        entityLabel: route.entityLabel,
-        confidence: route.confidence
-      };
-      return response;
-    }
-  }
-
-  if (route.intent === "lab_group" && route.groupLabs.length) {
-    const response = llmIntentRouter.groupResponse(route);
-    if (response) {
-      response.router = {
-        intent: route.intent,
-        entityLabel: route.entityLabel,
-        confidence: route.confidence
-      };
-      return response;
-    }
-  }
-
-  const routedPayload = {
-    ...payload,
-    mode: routedMode(route.intent, payload.mode),
-    context: route.useSelected ? payload.context : null,
-    router: {
-      intent: route.intent,
-      entityLabel: route.entityLabel,
-      confidence: route.confidence
-    }
-  };
-
-  const response = await gigachatProvider.chat(routedPayload, patientId, config.gigachat);
-  response.router = routedPayload.router;
-  if (!route.useSelected && payload.context?.test_name) response.contextAction = "clear";
-  return response;
-}
-
-async function chat(payload = {}, patientId) {
-  const config = getAiConfig();
-
-  // When a real LLM is enabled, it gets the first chance to understand the user's
-  // wording and conversational intent. Rule-based routing is kept only as a safe
-  // fallback for outages / disabled AI, not as the main conversational brain.
-  if (config.enabled && config.provider === "gigachat") {
-    try {
-      const response = await chatWithGigachatRouter(payload, patientId, config);
-      return envelope(response, {
-        provider: "gigachat",
-        aiEnabled: config.enabled,
-        providerStatus: "success"
-      });
-    } catch (error) {
-      return fallbackToMock(payload, patientId, config, error.message || "gigachat_unavailable");
-    }
-  }
-
-  if (!config.enabled || config.provider === "mock") {
-    const routed = await routeWithRules(payload, patientId);
-    if (routed.direct) {
-      return envelope(routed.direct, {
-        provider: "atlas",
-        requestedProvider: config.provider,
-        aiEnabled: config.enabled,
-        providerStatus: "success"
-      });
-    }
-    const response = await mockProvider.chat(routed.payload, patientId);
-    return envelope(response, {
-      provider: "mock",
-      aiEnabled: config.enabled,
-      providerStatus: "success"
-    });
-  }
-
-  return fallbackToMock(payload, patientId, config, "unsupported_provider");
-}
-
-module.exports = { chat };
+module.exports={chat};

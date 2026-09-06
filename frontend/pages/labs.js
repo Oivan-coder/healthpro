@@ -201,6 +201,7 @@ window.Pages.labs = async function renderLabs() {
   if (explain) explain.onclick = () => {
     window.AssistantState = window.AssistantState || {};
     AssistantState.mode = "result_explanation"; AssistantState.context = createBookingContext(selected); AssistantState.messages = [];
+    AssistantState.pending = false; AssistantState.draft = "";
     App.navigate("assistant");
   };
   Cabinet.search(document.getElementById("labSearch"), query => {LabState.query = query;});

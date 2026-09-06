@@ -200,7 +200,7 @@ function renderAssistantMessages(summary) {
   const renderedMessages = AssistantState.messages.map(item => `
     <article class="assistant-message ${item.role}">
       <div class="assistant-message-label">${item.role === "assistant" ? "Атлас" : "Вы"}</div>
-      ${item.role === "assistant" ? `<div class="assistant-provider-note">${item.provider === "gigachat" ? "GigaChat подключен" : "Demo-safe режим"}${item.safetyGuardApplied ? " · проверено правилами" : ""}${item.providerStatus === "fallback" ? " · безопасный fallback" : ""}</div>` : ""}
+      ${item.role === "assistant" ? `<div class="assistant-provider-note">${item.provider === "gigachat" ? "GigaChat подключен" : "Справочный режим"}${item.providerStatus === "fallback" ? " · AI-ответ недоступен" : ""}</div>` : ""}
       <div class="assistant-message-text">${item.role === "assistant" ? renderAssistantText(item.text) : `<p>${assistantEscape(item.text)}</p>`}</div>
       ${renderAssistantActions(item.actions)}
       ${item.basis ? renderAssistantBasis(item.basis) : ""}
@@ -306,7 +306,7 @@ window.Pages.assistant = async function renderAssistant() {
             <div class="label">Контекст пациента</div>
             <div class="assistant-patient-grid">
               <div><span>Пол</span><b>${assistantEscape(summary.patient?.sex || "не указан")}</b></div>
-              <div><span>Возраст</span><b>${assistantEscape(summary.patient?.age || "не указан")}</b></div>
+              <div><span>Возраст</span><b>${assistantEscape(summary.patient?.age ?? "не указан")}</b></div>
               <div><span>Последние анализы</span><b>${assistantEscape(assistantLatestDate(summary.labs || []))}</b></div>
               ${chronic.length ? `<div><span>Хронические состояния</span><b>${assistantEscape(chronic.join(", "))}</b></div>` : ""}
             </div>
@@ -324,14 +324,18 @@ window.Pages.assistant = async function renderAssistant() {
   async function sendQuestion(text, modeOverride) {
     const question = String(text || "").trim();
     if (!question || AssistantState.pending) return;
-    const requestMode = modeOverride || AssistantState.mode || "assistant_chat";
+    const requestMode = modeOverride || "assistant_chat";
+    const conversation = AssistantState.messages;
+    const history = conversation.slice(-12).map(item => ({role:item.role,content:item.text}));
     AssistantState.mode = requestMode;
     AssistantState.draft = "";
     AssistantState.messages.push({ role: "user", text: question });
     AssistantState.pending = true;
     rerenderAssistantPreservingScroll();
     try {
-      const response = await HealthAPI.assistantChat({ message: question, mode: requestMode, context: AssistantState.context });
+      const response = await HealthAPI.assistantChat({ message: question, mode: requestMode, context: AssistantState.context, history });
+      // A cleared conversation or another account must not receive an old request's reply.
+      if (AssistantState.messages !== conversation) return;
       AssistantState.pending = false;
 
       if (response.contextAction === "clear") {
@@ -354,6 +358,7 @@ window.Pages.assistant = async function renderAssistant() {
         safetyGuardApplied: response.safetyGuardApplied
       });
     } catch (error) {
+      if (AssistantState.messages !== conversation) return;
       AssistantState.pending = false;
       AssistantState.messages.push({
         role: "assistant",
