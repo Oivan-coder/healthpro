@@ -340,7 +340,6 @@
     margin-top: 6px !important;
   }
 
-  /* True mobile sheet: never clipped by the picker card or bottom navigation. */
   .assistant-picker-backdrop:not([hidden]) {
     position: fixed !important;
     inset: 0 !important;
@@ -576,6 +575,12 @@
     content: "→";
     font-size: 21px;
     line-height: 1;
+  }
+
+  /* The drawer is the top-level mobile navigation. Never let the assistant sheet sit above it. */
+  body.nav-open .assistant-picker-backdrop,
+  body.nav-open .assistant-indicator-popover {
+    display: none !important;
   }
 }
 
