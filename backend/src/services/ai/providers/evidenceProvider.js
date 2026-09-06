@@ -1,5 +1,6 @@
 const legacyProvider = require("./mockProvider");
 const clinicalKnowledge = require("../clinicalKnowledge");
+const clinicalSources = require("../clinical-sources.json");
 
 const SAFETY = [
   "Это не диагноз.",
@@ -24,18 +25,47 @@ function valueText(context = {}) {
   return `${value} ${unit}`.replace(/\s+/g, " ").trim();
 }
 
-function sourceLines(knowledge) {
+function sourceByKey(key) {
+  return clinicalSources.sources?.[key] || null;
+}
+
+function registryDocument(document = {}) {
+  const title = normalize(document.title);
+  return Object.values(clinicalSources.documents || {}).find(item => normalize(item.title) === title) || null;
+}
+
+function isLoincCode(value) {
+  return /^\d{1,5}-\d$/.test(String(value || "").trim());
+}
+
+function sourceLines(knowledge, context = {}) {
   const lines = [];
+  const minzdrav = sourceByKey("minzdrav");
+  const helix = sourceByKey("helix");
+  const loinc = sourceByKey("loinc");
+
   if (knowledge.documents?.length) {
     knowledge.documents.forEach(document => {
-      const details = [document.year, document.id ? `ID ${document.id}` : ""].filter(Boolean).join(", ");
-      lines.push(`- Клинические рекомендации Минздрава России «${document.title}»${details ? ` (${details})` : ""}: https://cr.minzdrav.gov.ru/`);
+      const registry = registryDocument(document);
+      const details = [document.year || registry?.year, document.id ? `ID ${document.id}` : registry?.catalog_id ? `ID ${registry.catalog_id}` : ""]
+        .filter(Boolean)
+        .join(", ");
+      const url = registry?.url || minzdrav?.url || "https://cr.minzdrav.gov.ru/";
+      lines.push(`- ${minzdrav?.label || "Клинические рекомендации Минздрава России"} «${document.title}»${details ? ` (${details})` : ""}: ${url}`);
     });
-  } else {
-    lines.push("- Клинические рекомендации Минздрава России: https://cr.minzdrav.gov.ru/");
+  } else if (minzdrav) {
+    lines.push(`- ${minzdrav.label}: ${minzdrav.url}`);
   }
-  lines.push("- Helixbook — справочник лабораторных исследований: https://helix.ru/kb");
-  lines.push("- LOINC используется для стандартизованной идентификации лабораторных наблюдений: https://loinc.org/");
+
+  if (helix) lines.push(`- ${helix.label}: ${helix.url}`);
+
+  if (loinc) {
+    const loincUrl = isLoincCode(context.test_code)
+      ? `https://loinc.org/${String(context.test_code).trim()}/`
+      : loinc.url;
+    lines.push(`- ${loinc.label}: ${loincUrl}`);
+  }
+
   return lines;
 }
 
@@ -98,7 +128,7 @@ async function evidenceAnswer(context = {}, patientId) {
       missingLine,
       "Это справочное пояснение по документам, а не диагноз и не назначение обследования или лечения.",
       "Источники:",
-      ...sourceLines(knowledge)
+      ...sourceLines(knowledge, context)
     ].filter(Boolean).join("\n"),
     basis: {
       chain: "evidence_result_explanation",
@@ -121,7 +151,8 @@ async function evidenceAnswer(context = {}, patientId) {
       validationStatus: "Справочная интерпретация по подключенным источникам; не является диагнозом или назначением",
       sources: knowledge.sources,
       documents: knowledge.documents,
-      group: knowledge.groupTitle
+      group: knowledge.groupTitle,
+      sourceRegistryVersion: clinicalSources.version
     },
     safety: SAFETY
   };
