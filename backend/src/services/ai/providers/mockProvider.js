@@ -10,7 +10,14 @@ const SAFETY = [
 ];
 
 function normalize(text) {
-  return String(text || "").trim().toLowerCase().replace(/ё/g, "е");
+  return String(text || "")
+    .trim()
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[–—]/g, "-")
+    .replace(/[^a-zа-я0-9%+./ -]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function firstName(patient = {}) {
@@ -47,7 +54,7 @@ function patientDescriptor(patient = {}) {
 
 function humanGroup(lab = {}) {
   const key = normalize(`${lab.code || ""} ${lab.name || ""} ${lab.group || ""}`);
-  if (/(d[- ]?димер|d[- ]?dimer|мно|inr|ачтв|aptt|фибриноген|коагул)/i.test(key)) return "свёртываемость крови";
+  if (/(d[- ]?димер|ддимер|d[- ]?dimer|мно|inr|ачтв|aptt|фибриноген|коагул)/i.test(key)) return "свёртываемость крови";
   if (/(гемоглоб|hgb|\bhb\b|эритроцит|rbc|гематокрит|hct|mcv|mch|mchc|rdw)/i.test(key)) return "общий анализ крови";
   if (/(лейкоцит|wbc|нейтрофил|лимфоцит|моноцит|эозинофил|базофил)/i.test(key)) return "общий анализ крови";
   if (/(17[- ]?он|прогестер|тестостер|эстрадиол|пролактин|фсг|лг|horm)/i.test(key)) return "гормональные показатели";
@@ -62,6 +69,21 @@ function humanGroup(lab = {}) {
 
 function formatLab(lab) {
   return `${lab.name}: ${valueText(lab)} — ${flagText(lab.flag)}`;
+}
+
+function contextFromLab(lab) {
+  if (!lab) return null;
+  return {
+    test_code: lab.code || null,
+    test_name: lab.name,
+    value: lab.latestValue,
+    unit: lab.unit || null,
+    flag: lab.flag || null,
+    report_date: lab.latestDate || null,
+    history: Array.isArray(lab.history)
+      ? lab.history.map(row => ({ date: row.date, value: row.value, flag: row.flag }))
+      : []
+  };
 }
 
 function buildBasis(chain, context, extra = {}) {
@@ -133,7 +155,6 @@ function shortSummaryAnswer(data) {
   const abnormal = data.abnormal.slice(0, 5);
   const dynCount = dynamicsCount(data.labs);
   const date = latestDate(data.labs);
-
   const lines = [];
   if (intro) lines.push(`${intro}${intro.endsWith(",") ? "" : "."}`);
   lines.push(data.abnormal.length
@@ -144,42 +165,31 @@ function shortSummaryAnswer(data) {
   else lines.push("По текущим отклонениям повторных значений пока недостаточно для оценки динамики.");
   if (date) lines.push(`Последние результаты: ${date}.`);
   lines.push("Это справочная сводка, а не диагноз; приоритет зависит от жалоб, причины обследования, лекарств и условий сдачи анализов.");
-
   return {
-    answer: lines.join("\n"),
-    actions: [],
+    answer: lines.join("\n"), actions: [],
     basis: buildBasis("patient_summary", null, { patientData: compactPatientData(data), chainLabel: "Короткая сводка пациента" })
   };
 }
 
 function attentionAnswer(data) {
-  const patient = data.patient || {};
-  const name = firstName(patient);
+  const name = firstName(data.patient || {});
   const abnormal = data.abnormal.slice(0, 6);
   if (!abnormal.length) {
-    return {
-      answer: `${name ? `${name}, ` : ""}по последним подключённым данным показателей вне референсного диапазона не видно.`,
-      actions: [],
-      basis: buildBasis("attention", null, { patientData: compactPatientData(data), chainLabel: "Что требует внимания" })
-    };
+    return { answer: `${name ? `${name}, ` : ""}по последним подключённым данным показателей вне референсного диапазона не видно.`, actions: [], basis: buildBasis("attention", null, { patientData: compactPatientData(data), chainLabel: "Что требует внимания" }) };
   }
-
   const grouped = new Map();
   abnormal.forEach(lab => {
     const group = humanGroup(lab);
     if (!grouped.has(group)) grouped.set(group, []);
     grouped.get(group).push(formatLab(lab));
   });
-
-  const lines = [
-    `${name ? `${name}, ` : ""}сейчас вне референсного диапазона ${data.abnormal.length} показателей.`,
-    ...Array.from(grouped.entries()).map(([group, labs]) => `- ${group}: ${labs.join("; ")}`),
-    "По одним лабораторным значениям корректно ранжировать причины нельзя. Если скажете, зачем сдавали анализы и есть ли жалобы, я помогу сузить, что обсудить с врачом в первую очередь."
-  ];
   return {
-    answer: lines.join("\n"),
-    actions: [],
-    basis: buildBasis("attention", null, { patientData: compactPatientData(data), chainLabel: "Что требует внимания" })
+    answer: [
+      `${name ? `${name}, ` : ""}сейчас вне референсного диапазона ${data.abnormal.length} показателей.`,
+      ...Array.from(grouped.entries()).map(([group, labs]) => `- ${group}: ${labs.join("; ")}`),
+      "Если скажете, зачем сдавали анализы и есть ли жалобы, я помогу сузить, что обсудить с врачом в первую очередь."
+    ].join("\n"),
+    actions: [], basis: buildBasis("attention", null, { patientData: compactPatientData(data), chainLabel: "Что требует внимания" })
   };
 }
 
@@ -192,10 +202,8 @@ function doctorQuestionsAnswer(data, context) {
       "- какие из отклонений действительно значимы именно с учётом ваших жалоб и причины обследования;",
       "- могли ли лекарства, питание, физическая нагрузка или условия сдачи повлиять на результат;",
       "- какие показатели стоит оценивать вместе, а не по одному;",
-      "- нужна ли врачу динамика или повторное исследование и при каких условиях.",
-      "Я не назначаю обследования и лечение — это список вопросов для консультации."
-    ].join("\n"),
-    actions: [],
+      "- нужна ли врачу динамика или повторное исследование и при каких условиях."
+    ].join("\n"), actions: [],
     basis: buildBasis("doctor_questions", context, { patientData: compactPatientData(data), chainLabel: "Подготовка вопросов врачу" })
   };
 }
@@ -210,8 +218,7 @@ function missingDataAnswer(data) {
       "- условия сдачи анализа;",
       "- важные диагнозы или состояния, если они уже установлены врачом.",
       "Сами результаты и ваш пол/возраст я уже вижу в Атласе."
-    ].join("\n"),
-    actions: [],
+    ].join("\n"), actions: [],
     basis: buildBasis("missing_context", null, { patientData: compactPatientData(data), chainLabel: "Недостающий контекст" })
   };
 }
@@ -221,59 +228,122 @@ function casualAnswer(data, message) {
   const hi = /(привет|здравств|добрый|доброе)/i.test(message);
   const how = /(как дела|как ты|че как|что нового)/i.test(message);
   const otherTopic = /(поговорим|поговорить|о чем[- ]?то другом|не про анализ|другая тема|сменим тему)/i.test(message);
-
+  const openEnded = /(что расскажешь|расскажи что-нибудь|что можешь рассказать|что скажешь)/i.test(message);
   let answer;
-  if (otherTopic) {
-    answer = "Конечно. Можем немного отвлечься от анализов — о чём хотите поговорить?";
-  } else if (how) {
-    answer = `${name ? `${name}, ` : ""}всё в порядке 🙂 Я на связи.`;
-  } else if (hi) {
-    answer = `${name ? `${name}, ` : ""}здравствуйте.`;
-  } else {
-    answer = "Я на связи.";
-  }
-
-  return {
-    answer,
-    actions: [],
-    basis: buildBasis("casual", null, { patientData: compactPatientData(data), chainLabel: "Обычный диалог" })
-  };
+  if (otherTopic) answer = "Конечно. Можем немного отвлечься от анализов — о чём хотите поговорить?";
+  else if (how) answer = `${name ? `${name}, ` : ""}всё в порядке 🙂 Я на связи.`;
+  else if (openEnded) answer = `${name ? `${name}, ` : ""}могу рассказать о том, что вижу в ваших анализах, разобрать отдельный показатель или просто поговорить на другую тему. Что интереснее?`;
+  else if (hi) answer = `${name ? `${name}, ` : ""}здравствуйте.`;
+  else answer = "Я на связи.";
+  return { answer, actions: [], basis: buildBasis("casual", null, { patientData: compactPatientData(data), chainLabel: "Обычный диалог" }) };
 }
 
 function resultAnswer(context, data) {
-  if (!context?.test_name) {
-    return {
-      answer: "Назовите показатель в вопросе — я попробую найти его среди ваших результатов и разобрать именно его.",
-      actions: [],
-      basis: buildBasis("result_explanation", context)
-    };
-  }
+  if (!context?.test_name) return { answer: "Назовите показатель в вопросе — я попробую найти его среди ваших результатов и разобрать именно его.", actions: [], basis: buildBasis("result_explanation", context) };
   const name = firstName(data.patient || {});
   const historyCount = Array.isArray(context.history) ? context.history.length : 0;
   return {
     answer: [
       `${name ? `${name}, ` : ""}${context.test_name}: ${context.value ?? ""} ${context.unit || ""} — ${flagText(context.flag)}.`,
       historyCount > 1 ? `По этому показателю у вас есть ${historyCount} значения в динамике.` : "Повторных значений по этому показателю пока недостаточно для оценки динамики.",
-      "Без подтверждённого сценария из подключённой базы я не буду придумывать причину отклонения."
-    ].join("\n"),
-    actions: [],
+      "Для медицинской трактовки я использую только подключённые доказательные сценарии и не буду придумывать диагноз."
+    ].join("\n"), actions: [],
     basis: buildBasis("result_explanation", context, { patientData: compactPatientData(data), chainLabel: "Разбор результата" })
   };
 }
 
-function detectIntent(message, requestedMode, context) {
+function compactKey(value) {
+  return normalize(value).replace(/[^a-zа-я0-9]+/gi, "");
+}
+
+const LAB_ALIASES = [
+  { re: /(ддимер|д[- ]?димер|d[- ]?dimer)/i, terms: ["димер", "d-dimer", "d dimer"] },
+  { re: /(гемоглобин|гемоглоб|\bhb\b|\bhgb\b)/i, terms: ["гемоглоб", "hgb"] },
+  { re: /(лейкоцит|\bwbc\b)/i, terms: ["лейкоцит", "wbc"] },
+  { re: /(эритроцит|\brbc\b)/i, terms: ["эритроцит", "rbc"] },
+  { re: /(17[- ]?он[- ]?прогестерон|17он|17[- ]?oh)/i, terms: ["17-он", "17 он", "17-oh"] }
+];
+
+function findLabFromMessage(message, labs = []) {
   const text = normalize(message);
-  if (!text) return "empty";
-  if (/^(привет|здравствуй|здравствуйте|добрый день|доброе утро|добрый вечер|как дела\??|как ты\??|че как\??|что нового\??)$/i.test(text)) return "casual";
-  if (/(поговорим|поговорить|о чем[- ]?то другом|не про анализ|другая тема|сменим тему)/i.test(text)) return "casual";
-  if (/(коротк.*свод|кратк.*свод|собери.*свод|сводк.*для врача|общая картина|что у меня по анализам)/i.test(text)) return "summary";
-  if (/(что.*требует внимания|что.*важн|на что.*обратить|что.*не так|отклонен|вне.*диапаз|выше|ниже)/i.test(text) && !context?.test_name) return "attention";
-  if (/(чего не хватает|каких данных|недостаточно данных|что уточнить)/i.test(text)) return "missing";
-  if (/(вопрос.*врач|что обсудить.*врач|подготов.*врач|на прием)/i.test(text)) return "doctor_questions";
-  if (context?.test_name && /(почему|что значит|объясни|влияет|связан|динамик|референс|показател|результат|анализ)/i.test(text)) return "result";
-  if (requestedMode === "result_explanation" && context?.test_name) return "result";
-  if (requestedMode === "doctor_questions" && /(врач|прием|вопрос|обсуд)/i.test(text)) return "doctor_questions";
-  return "unknown";
+  const compactText = compactKey(text);
+  for (const alias of LAB_ALIASES) {
+    if (!alias.re.test(text)) continue;
+    const found = labs.find(lab => {
+      const hay = normalize(`${lab.name || ""} ${lab.code || ""}`);
+      const compactHay = compactKey(hay);
+      return alias.terms.some(term => hay.includes(normalize(term)) || compactHay.includes(compactKey(term)));
+    });
+    if (found) return found;
+  }
+  const candidates = labs
+    .map(lab => {
+      const name = normalize(lab.name);
+      const code = normalize(lab.code);
+      const nameWords = name.split(/\s+/).filter(word => word.length >= 4);
+      let score = 0;
+      if (code && text.includes(code)) score += 5;
+      if (name && text.includes(name)) score += 6;
+      nameWords.forEach(word => { if (text.includes(word)) score += 2; });
+      return { lab, score };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+  return candidates[0]?.score >= 2 ? candidates[0].lab : null;
+}
+
+function detectStudyTopic(message) {
+  const text = normalize(message);
+  if (/\bоак\b|общ(ий|его).*анализ.*кров|клиническ.*анализ.*кров/i.test(text)) return "общий анализ крови";
+  if (/(что|че).*мо(й|и|им).*\bок\b/i.test(text)) return "общий анализ крови"; // common typo for ОАК in short chat
+  if (/коагулограмм|гемостаз|свертываемост.*кров/i.test(text)) return "свёртываемость крови";
+  if (/печеночн.*проб|печеночн.*показ/i.test(text)) return "печёночные показатели";
+  if (/липидограмм|липидн.*профил/i.test(text)) return "липидный профиль";
+  if (/щитовид|тиреоидн.*профил/i.test(text)) return "щитовидная железа";
+  return null;
+}
+
+function studyAnswer(topic, data) {
+  const name = firstName(data.patient || {});
+  const labs = data.labs.filter(lab => humanGroup(lab) === topic);
+  if (!labs.length) {
+    return {
+      answer: `${name ? `${name}, ` : ""}в подключённых результатах я не нашёл показателей блока «${topic}».`,
+      actions: [], basis: buildBasis("study_group", null, { patientData: compactPatientData(data), chainLabel: "Разбор группы исследований" })
+    };
+  }
+  const abnormal = labs.filter(lab => lab.flag && lab.flag !== "normal");
+  const lines = [
+    `${name ? `${name}, ` : ""}по блоку «${topic}» у вас сейчас ${labs.length} показателей${abnormal.length ? `, из них ${abnormal.length} вне референсного диапазона` : ", отклонений по подключённым референсам не видно"}.`,
+    ...labs.slice(0, 8).map(lab => `- ${formatLab(lab)}`)
+  ];
+  if (abnormal.length) lines.push("Я могу разобрать любой из отклонённых показателей отдельно и сверить его с подключённой доказательной базой.");
+  return {
+    answer: lines.join("\n"), actions: [],
+    basis: buildBasis("study_group", null, { patientData: compactPatientData(data), chainLabel: `Разбор: ${topic}` })
+  };
+}
+
+function detectIntent(message, requestedMode, context, data) {
+  const text = normalize(message);
+  if (!text) return { kind: "empty" };
+  if (/^(привет|здравствуй|здравствуйте|добрый день|доброе утро|добрый вечер|как дела|как ты|че как|что нового)$/i.test(text)) return { kind: "casual" };
+  if (/(поговорим|поговорить|о чем[- ]?то другом|не про анализ|другая тема|сменим тему|что расскажешь|расскажи что-нибудь|что можешь рассказать|что скажешь)/i.test(text)) return { kind: "casual" };
+
+  const topic = detectStudyTopic(text);
+  if (topic) return { kind: "study", topic };
+
+  const mentionedLab = findLabFromMessage(text, data.labs);
+  if (mentionedLab) return { kind: "result", context: contextFromLab(mentionedLab) };
+
+  if (/(коротк.*свод|кратк.*свод|собери.*свод|сводк.*для врача|общая картина|что у меня по анализам)/i.test(text)) return { kind: "summary" };
+  if (/(что.*требует внимания|что.*важн|на что.*обратить|что.*не так|отклонен|вне.*диапаз|выше|ниже)/i.test(text) && !context?.test_name) return { kind: "attention" };
+  if (/(чего не хватает|каких данных|недостаточно данных|что уточнить)/i.test(text)) return { kind: "missing" };
+  if (/(вопрос.*врач|что обсудить.*врач|подготов.*врач|на прием)/i.test(text)) return { kind: "doctor_questions" };
+  if (context?.test_name && /(почему|что значит|объясни|влияет|связан|динамик|референс|показател|результат|анализ|он|его|этот)/i.test(text)) return { kind: "result", context };
+  if (requestedMode === "result_explanation" && context?.test_name) return { kind: "result", context };
+  if (requestedMode === "doctor_questions" && /(врач|прием|вопрос|обсуд)/i.test(text)) return { kind: "doctor_questions" };
+  return { kind: "unknown" };
 }
 
 async function chat(payload = {}, patientId) {
@@ -281,27 +351,30 @@ async function chat(payload = {}, patientId) {
   const context = payload.context || {};
   const requestedMode = payload.mode || "";
   const data = await buildPatientSummaryContext(patientId);
-  const intent = detectIntent(message, requestedMode, context);
+  const intent = detectIntent(message, requestedMode, context, data);
 
-  if (intent === "casual") return responseEnvelope(casualAnswer(data, message), "assistant_chat");
-  if (intent === "summary") return responseEnvelope(shortSummaryAnswer(data), "patient_summary");
-  if (intent === "attention") return responseEnvelope(attentionAnswer(data), "patient_summary");
-  if (intent === "missing") return responseEnvelope(missingDataAnswer(data), "doctor_questions");
-  if (intent === "doctor_questions") return responseEnvelope(doctorQuestionsAnswer(data, context), "doctor_questions");
-  if (intent === "result") return responseEnvelope(resultAnswer(context, data), "result_explanation");
-  if (intent === "empty") {
+  if (intent.kind === "casual") return responseEnvelope(casualAnswer(data, message), "assistant_chat");
+  if (intent.kind === "study") return responseEnvelope(studyAnswer(intent.topic, data), "result_explanation");
+  if (intent.kind === "summary") return responseEnvelope(shortSummaryAnswer(data), "patient_summary");
+  if (intent.kind === "attention") return responseEnvelope(attentionAnswer(data), "patient_summary");
+  if (intent.kind === "missing") return responseEnvelope(missingDataAnswer(data), "doctor_questions");
+  if (intent.kind === "doctor_questions") return responseEnvelope(doctorQuestionsAnswer(data, context), "doctor_questions");
+  if (intent.kind === "result") {
+    const response = resultAnswer(intent.context, data);
+    response.resolvedContext = intent.context;
+    return responseEnvelope(response, "result_explanation");
+  }
+  if (intent.kind === "empty") {
     return responseEnvelope({
-      answer: "Напишите вопрос своими словами. Я могу разобрать конкретный показатель, коротко свести анализы или просто поддержать короткий разговор.",
-      actions: [],
-      basis: buildBasis("empty_question", context)
+      answer: "Напишите вопрос своими словами. Можно спросить, например, «что с моим ОАК?» или «что значит D-димер?». Сам показатель выбирать вручную не обязательно.",
+      actions: [], basis: buildBasis("empty_question", context)
     }, "assistant_chat");
   }
 
   return responseEnvelope({
-    answer: "Я понял вопрос не до конца. Можно переформулировать его одной фразой — если речь о показателе из ваших анализов, просто назовите его.",
-    actions: [],
-    basis: buildBasis("clarification", context, { patientData: compactPatientData(data), chainLabel: "Уточнение запроса" })
+    answer: "Не до конца понял формулировку. Если речь об анализах, можете написать даже коротко — например «ОАК», «Д-димер», «что с лейкоцитами». Я попробую сам найти нужные результаты.",
+    actions: [], basis: buildBasis("clarification", context, { patientData: compactPatientData(data), chainLabel: "Уточнение запроса" })
   }, "assistant_chat");
 }
 
-module.exports = { chat, buildPatientSummaryContext, firstName, sexText };
+module.exports = { chat, buildPatientSummaryContext, firstName, sexText, contextFromLab, findLabFromMessage };
