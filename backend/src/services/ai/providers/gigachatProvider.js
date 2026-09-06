@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const https = require("https");
 const mockProvider = require("./mockProvider");
+const clinicalKnowledge = require("../clinicalKnowledge");
 
 let tokenCache = {
   accessToken: "",
@@ -9,43 +10,32 @@ let tokenCache = {
 
 const SYSTEM_PROMPT = [
   "Ты ассистент пациентского кабинета «Атлас здоровья».",
-  "Отвечай на русском языке, спокойно и понятно.",
-  "Помогай пациенту понять структуру данных в кабинете и простыми словами объяснять, что показатель выше или ниже референса.",
-  "Не ставь диагнозы.",
-  "Не назначай лечение.",
-  "Не рекомендуй начать, отменить или изменить лекарства.",
-  "Не предлагай диету, добавки, обследования, препараты или лечение как рекомендацию.",
-  "Не используй вероятностные медицинские выводы вроде «это может говорить о», «указывает на», «повышает риск», если это не указано явно в переданных данных.",
-  "Если показатель вне референса, говори нейтрально: «показатель выше/ниже обычного диапазона» и «это стоит обсудить с врачом».",
-  "Вопросы к врачу формулируй как подготовку к приему: «что могло повлиять на результат», «нужна ли перепроверка», «какие дальнейшие шаги уместны».",
-  "Не заменяй врача.",
-  "Всегда предлагай обсудить отклонения с врачом.",
-  "Если вопрос тревожный, острый или связан с лечением, рекомендуй обратиться к врачу или в неотложную помощь.",
-  "Опирайся только на данные, переданные из Атласа здоровья.",
-  "Если данных недостаточно, честно скажи, чего не хватает.",
-  "Не выдумывай анализы, диагнозы, документы или назначения."
+  "Отвечай на русском языке, спокойно, понятно и по делу.",
+  "Ты видишь персональный контекст пациента: имя, возраст, пол, лабораторные данные и, когда доступно, подключенную доказательную базу.",
+  "Обращайся к пациенту по имени естественно, обычно не чаще одного раза за ответ.",
+  "Учитывай возраст и пол только когда это действительно важно для интерпретации; не повторяй их механически в каждом ответе.",
+  "Сначала отвечай на конкретный вопрос пользователя, затем при необходимости добавляй 1–3 полезных пояснения.",
+  "Предпочитай короткие ответы: обычно 3–7 небольших абзацев или пунктов, без длинной формальной сводки.",
+  "Не ставь диагнозы и не формулируй состояние пациента как установленное заболевание.",
+  "Не назначай лечение и не рекомендуй начать, отменить или изменить лекарства, дозировки, добавки или диету.",
+  "Не назначай обследования от своего имени. Если подключенная документация связывает показатель с другими исследованиями, формулируй это как: «в рекомендациях для оценки также используют ...; в ваших данных ...; это можно обсудить с врачом».",
+  "Медицинские объяснения причин, связей и дополнительных показателей допускаются только если они прямо присутствуют в переданной доказательной базе.",
+  "Если доказательной базы для тезиса нет, прямо скажи, что подтвержденного основания в подключенной базе недостаточно, и не додумывай.",
+  "Не делай вывод только по одному отклонению: учитывай динамику, связанные показатели, референс, возраст и пол, если они переданы.",
+  "Различай факт и справочную информацию: «у вас показатель ниже референса» — факт; «в рекомендациях этот показатель рассматривают вместе с ...» — справочная информация.",
+  "Если пользователь просит возможные причины, перечисляй их только когда они есть в подключенном источнике и обязательно указывай, что это не означает наличие конкретной причины у пациента.",
+  "При острых опасных симптомах рекомендуй очную медицинскую оценку или неотложную помощь.",
+  "Не выдумывай анализы, значения, диагнозы, документы, ссылки или назначения."
 ].join("\n");
 
 const UNSAFE_ANSWER_PATTERNS = [
-  /преддиаб/i,
-  /диабет/i,
-  /аутоиммун/i,
-  /инфекц/i,
-  /сердечно-сосуд/i,
-  /риск/i,
-  /лечени[еяюем]/i,
-  /препарат/i,
-  /лекарств/i,
-  /добавк/i,
-  /обследован/i,
-  /коррекц/i,
-  /нормализ/i,
-  /может\s+(говорить|свидетельствовать|указывать|быть признаком)/i,
-  /могут?\s+(говорить|свидетельствовать|указывать|быть признаком)/i,
-  /указывает\s+на/i,
-  /свидетельствует\s+о/i,
-  /проблем[а-я\s]+со здоровьем/i,
-  /нарушени[ея]/i
+  /у\s+вас\s+(?:точно\s+)?(?:диагноз|заболевание|анемия|диабет|гипотиреоз|инфекция)/i,
+  /вам\s+(?:нужно|необходимо|следует)\s+(?:сдать|пройти|принимать|начать|отменить|увеличить|уменьшить)/i,
+  /(?:начните|начать)\s+(?:принимать|лечение)/i,
+  /(?:отмените|прекратите)\s+(?:принимать|препарат|лекарств)/i,
+  /(?:увеличьте|уменьшите|измените)\s+(?:доз|дозиров)/i,
+  /я\s+(?:ставлю|подтверждаю)\s+диагноз/i,
+  /это\s+(?:точно|однозначно)\s+(?:означает|указывает|свидетельствует)/i
 ];
 
 function clampText(value, maxChars) {
@@ -55,10 +45,10 @@ function clampText(value, maxChars) {
 }
 
 function flagText(flag) {
-  if (flag === "high") return "выше обычного диапазона";
-  if (flag === "low") return "ниже обычного диапазона";
-  if (flag === "normal") return "в обычном диапазоне";
-  return "требует внимания";
+  if (flag === "high") return "выше референсного диапазона";
+  if (flag === "low") return "ниже референсного диапазона";
+  if (flag === "normal") return "в референсном диапазоне";
+  return "требует интерпретации";
 }
 
 function safeError(message, statusCode) {
@@ -144,6 +134,24 @@ async function getAccessToken(config) {
   return tokenCache.accessToken;
 }
 
+function firstName(patient = {}) {
+  const raw = String(patient.name || patient.fullName || "").trim();
+  return raw ? raw.split(/\s+/)[0] : "";
+}
+
+function patientLine(patient = {}) {
+  const parts = [];
+  const name = firstName(patient);
+  if (name) parts.push(`имя: ${name}`);
+  if (patient.age !== undefined && patient.age !== null && patient.age !== "") parts.push(`возраст: ${patient.age}`);
+  if (patient.sex) parts.push(`пол: ${patient.sex}`);
+  return parts.length ? `Пациент: ${parts.join("; ")}.` : "";
+}
+
+function referenceFromContext(context = {}) {
+  return clinicalKnowledge.referenceText(context) || "";
+}
+
 function contextLine(context) {
   if (!context?.test_name) return "";
   const parts = [
@@ -151,33 +159,80 @@ function contextLine(context) {
     context.value !== undefined ? `значение: ${context.value}` : "",
     context.unit ? `единицы: ${context.unit}` : "",
     context.flag ? `статус: ${flagText(context.flag)}` : "",
+    referenceFromContext(context) ? `референс: ${referenceFromContext(context)}` : "",
     context.report_date || context.date ? `дата: ${context.report_date || context.date}` : ""
   ].filter(Boolean);
   return parts.join("; ");
 }
 
+function historyLine(context = {}) {
+  if (!Array.isArray(context.history) || !context.history.length) return "";
+  const rows = context.history.slice(-8).map(row => {
+    const value = `${row.value ?? ""}${context.unit ? ` ${context.unit}` : ""}`.trim();
+    return `${row.date || "без даты"}: ${value}${row.flag ? ` (${flagText(row.flag)})` : ""}`;
+  });
+  return rows.length ? `Динамика выбранного показателя: ${rows.join("; ")}.` : "";
+}
+
+function evidenceLines(context = {}, patientLabs = []) {
+  const knowledge = clinicalKnowledge.knowledgeFor(context);
+  if (!knowledge) return [];
+  const lines = [
+    `Подключенная доказательная база для показателя: ${knowledge.groupTitle}.`,
+    `Проверенный справочный тезис: ${knowledge.interpretation}`
+  ];
+  if (knowledge.related?.length) {
+    lines.push(`Связанные показатели по сценарию: ${knowledge.related.join(", ")}.`);
+    const missing = clinicalKnowledge.missingRelated(knowledge, patientLabs);
+    if (missing.length) lines.push(`Из связанных показателей в текущих данных не найдено: ${missing.join(", ")}.`);
+  }
+  if (knowledge.documents?.length) {
+    lines.push(`Подключенные документы: ${knowledge.documents.map(doc => `${doc.title}${doc.year ? ` (${doc.year})` : ""}`).join("; ")}.`);
+  }
+  if (knowledge.sources?.length) {
+    lines.push(`Разрешенные источники: ${knowledge.sources.map(source => `${source.label} — ${source.url}`).join("; ")}.`);
+  }
+  lines.push("Используй медицинские причинно-следственные пояснения только в пределах этих тезисов и источников.");
+  return lines;
+}
+
 async function buildMinimalPatientContext(payload, patientId, maxPromptChars) {
   const mode = payload.mode || "patient_summary";
   const lines = [
-    `Режим ассистента: ${mode}`,
-    "Передавай ответ как пациентское пояснение, без диагнозов и назначений."
+    `Режим ассистента: ${mode}.`,
+    "Ответ должен быть персональным, но не диагностическим."
   ];
 
-  const selectedResult = contextLine(payload.context || {});
-  if (selectedResult) lines.push(`Выбранный результат: ${selectedResult}`);
+  let data = null;
+  if (patientId) {
+    try {
+      data = await mockProvider.buildPatientSummaryContext(patientId);
+    } catch (error) {
+      data = null;
+    }
+  }
 
-  if (mode === "patient_summary" && patientId) {
-    const data = await mockProvider.buildPatientSummaryContext(patientId);
+  if (data?.patient) {
+    const patient = patientLine(data.patient);
+    if (patient) lines.push(patient);
+  }
+
+  const selectedResult = contextLine(payload.context || {});
+  if (selectedResult) lines.push(`Выбранный результат: ${selectedResult}.`);
+  const selectedHistory = historyLine(payload.context || {});
+  if (selectedHistory) lines.push(selectedHistory);
+
+  const patientLabs = data?.labs || [];
+  lines.push(...evidenceLines(payload.context || {}, patientLabs));
+
+  if (data) {
     const abnormal = (data.abnormal || []).slice(0, 8).map((lab) => (
       `${lab.name}: ${lab.latestValue ?? ""} ${lab.unit || ""} (${flagText(lab.flag)})`
     ).replace(/\s+/g, " ").trim());
     const reports = (data.labReports || []).slice(0, 3).map((report) => `${report.name} от ${report.date}`);
-    lines.push(`Лабораторных показателей: ${(data.labs || []).length}.`);
-    lines.push(`Показателей внимания: ${(data.abnormal || []).length}.`);
-    if (abnormal.length) lines.push(`Показатели внимания: ${abnormal.join("; ")}.`);
+    lines.push(`В кабинете лабораторных показателей: ${(data.labs || []).length}; показателей вне референса: ${(data.abnormal || []).length}.`);
+    if (abnormal.length) lines.push(`Текущие показатели внимания: ${abnormal.join("; ")}.`);
     if (reports.length) lines.push(`Последние исследования: ${reports.join("; ")}.`);
-    lines.push(`Записей/приемов в кабинете: ${(data.visits || []).length}.`);
-    lines.push(`Документов в кабинете: ${(data.reports || []).length + (data.documents || []).length}.`);
   }
 
   return clampText(lines.join("\n"), maxPromptChars);
@@ -186,9 +241,10 @@ async function buildMinimalPatientContext(payload, patientId, maxPromptChars) {
 function basisForResponse(payload) {
   const context = payload.context || {};
   const hasIndicator = Boolean(context.test_name);
+  const knowledge = hasIndicator ? clinicalKnowledge.knowledgeFor(context) : null;
   return {
     chain: payload.mode || "gigachat_safe_answer",
-    chainLabel: "AI-safe режим Атласа здоровья",
+    chainLabel: knowledge ? "AI-ответ с доказательным контекстом" : "AI-safe режим Атласа здоровья",
     indicator: context.test_name || null,
     patientData: hasIndicator ? {
       test_code: context.test_code || null,
@@ -196,11 +252,16 @@ function basisForResponse(payload) {
       value: context.value ?? null,
       unit: context.unit || null,
       flag: context.flag || null,
-      report_date: context.report_date || context.date || null
+      report_date: context.report_date || context.date || null,
+      reference: referenceFromContext(context) || null
     } : null,
-    source: "atlas_minimal_context",
-    sourceLabel: "Минимальный контекст Атласа здоровья",
-    validationStatus: "AI-интеграция, требует врачебной валидации"
+    source: knowledge ? "atlas_evidence_layer" : "atlas_patient_context",
+    sourceLabel: knowledge?.documents?.length
+      ? `Подключенная доказательная база · ${knowledge.documents[0].title}`
+      : "Данные пациента Атласа здоровья",
+    validationStatus: knowledge
+      ? "Справочная интерпретация ограничена подключенными источниками; не является диагнозом или назначением"
+      : "Ответ ограничен данными пациента; медицинские выводы без источника не формируются"
   };
 }
 
@@ -215,41 +276,47 @@ function labSummaryLine(lab) {
 function summaryBasis(payload, data) {
   const basis = basisForResponse(payload);
   basis.patientData = {
+    patient: firstName(data.patient || {}) || null,
+    age: data.patient?.age ?? null,
+    sex: data.patient?.sex || null,
     labReports: (data.labReports || []).length,
     abnormal: (data.abnormal || []).length,
     visits: (data.visits || []).length,
     documents: (data.documents || []).length + (data.reports || []).length
   };
-  basis.validationStatus = "AI-интеграция, ответ ограничен safety guard и требует врачебной валидации";
   return basis;
 }
 
-function safeResultAnswer(context) {
-  const value = [
-    context.value !== undefined ? context.value : "",
-    context.unit || ""
-  ].filter(Boolean).join(" ");
-  const resultText = value ? ` со значением ${value}` : "";
-  const dateText = context.report_date || context.date ? ` от ${context.report_date || context.date}` : "";
-  return [
-    `${context.test_name}${dateText}${resultText}: показатель ${flagText(context.flag)}.`,
-    "Это не диагноз и не назначение лечения.",
-    "Для приема можно подготовить вопросы врачу:",
-    "- что могло повлиять на результат;",
-    "- нужна ли перепроверка и когда;",
-    "- какие данные или документы взять на прием;",
-    "- какие дальнейшие шаги врач считает уместными."
-  ].join("\n");
+function greetingPrefix(data) {
+  const name = firstName(data?.patient || {});
+  return name ? `${name}, ` : "";
+}
+
+function safeResultAnswer(context, data) {
+  const value = [context.value !== undefined ? context.value : "", context.unit || ""].filter(Boolean).join(" ");
+  const resultText = value ? ` — ${value}` : "";
+  const reference = referenceFromContext(context);
+  const knowledge = clinicalKnowledge.knowledgeFor(context);
+  const name = firstName(data?.patient || {});
+  const lines = [
+    `${name ? `${name}, ` : ""}${context.test_name}${resultText}: показатель ${flagText(context.flag)}${reference ? ` (референс ${reference})` : ""}.`
+  ];
+  if (knowledge) {
+    lines.push(knowledge.interpretation);
+    if (knowledge.related?.length) lines.push(`В подключенной документации этот блок рассматривают вместе с: ${knowledge.related.join(", ")}.`);
+  } else {
+    lines.push("Для этого показателя в подключенной базе пока нет отдельного подтвержденного сценария, поэтому я не буду додумывать клиническую интерпретацию.");
+  }
+  lines.push("Это справочное пояснение, а не диагноз и не назначение лечения или обследования.");
+  return lines.join("\n");
 }
 
 function attentionAnswer(data) {
   const items = (data.abnormal || []).slice(0, 6).map(labSummaryLine);
   return [
-    items.length
-      ? `В текущих данных за пределами обычного диапазона: ${items.join("; ")}.`
-      : "По последним подключенным данным нет показателей вне обычного диапазона.",
-    "Это не диагноз и не назначение лечения.",
-    "На приеме лучше уточнить, какие из этих результатов врач считает приоритетными, что могло повлиять на значения и нужна ли перепроверка."
+    `${greetingPrefix(data)}${items.length ? `сейчас вне референсных диапазонов: ${items.join("; ")}.` : "по последним подключенным данным показателей вне референса нет."}`,
+    "Я могу разобрать любой из этих показателей отдельно и показать, на какой подключенной документации основано пояснение.",
+    "Это не диагноз: значение имеет сочетание показателей, динамика и клинический контекст."
   ].join("\n");
 }
 
@@ -262,44 +329,41 @@ function relatedAnswer(data) {
   });
   const lines = Object.entries(groups).slice(0, 5).map(([group, labs]) => `- ${group}: ${labs.join("; ")}`);
   return [
-    "Для обсуждения с врачом удобно смотреть показатели не по одному, а блоками:",
-    lines.length ? lines.join("\n") : "- сейчас нет показателей вне обычного диапазона.",
-    "Связь между показателями должен оценивать врач с учетом жалоб, подготовки к анализу, лекарств и анамнеза."
+    `${greetingPrefix(data)}удобнее смотреть отклонения не по одному, а связанными блоками:`,
+    lines.length ? lines.join("\n") : "- сейчас нет показателей вне референсных диапазонов.",
+    "Для конкретного показателя я могу отдельно показать связанные исследования из подключенной доказательной базы."
   ].join("\n");
 }
 
-function missingDataAnswer() {
+function missingDataAnswer(data) {
   return [
-    "Для полноценной врачебной интерпретации обычно не хватает контекста, которого нет в одном лабораторном значении:",
+    `${greetingPrefix(data)}для более точного справочного объяснения могут быть важны данные, которых обычно нет в одном лабораторном значении:`,
     "- жалобы и цель обращения;",
-    "- подготовка к анализу: натощак или нет, время сдачи;",
-    "- список лекарств и добавок;",
-    "- анамнез и сопутствующие состояния;",
-    "- предыдущие результаты и PDF-бланки лаборатории;",
-    "- план наблюдения от врача, если он уже есть."
+    "- условия подготовки и время исследования;",
+    "- лекарства и добавки;",
+    "- предыдущие результаты и динамика;",
+    "- связанные показатели, предусмотренные подключенным сценарием.",
+    "Если этих данных нет, я обозначу неопределенность, а не буду достраивать диагноз."
   ].join("\n");
 }
 
 function visitPrepAnswer(data) {
   const reports = (data.labReports || []).slice(0, 3).map((report) => `${report.name} от ${report.date}`);
   return [
-    "К приему стоит подготовить короткую папку по текущему эпизоду:",
-    `- результаты, которые требуют внимания: ${(data.abnormal || []).length};`,
+    `${greetingPrefix(data)}к приему можно собрать короткий контекст:`,
+    `- показатели вне референса: ${(data.abnormal || []).length};`,
     `- последние исследования: ${reports.length ? reports.join("; ") : "нет данных"};`,
-    "- PDF-бланки лаборатории, если врач попросит оригинал;",
-    "- список вопросов: что могло повлиять на результат, нужна ли перепроверка, какие следующие шаги врач считает уместными;",
-    "- жалобы, лекарства, подготовку к анализу и важные события перед сдачей."
+    "- жалобы, лекарства и условия подготовки к анализам;",
+    "- вопросы по тем показателям, которые хотите обсудить в первую очередь."
   ].join("\n");
 }
 
 function overviewAnswer(data) {
   const items = (data.abnormal || []).slice(0, 4).map(labSummaryLine);
   return [
-    `В кабинете подключено ${(data.labs || []).length} лабораторных показателей и ${(data.labReports || []).length} исследований.`,
-    items.length
-      ? `Для спокойного обсуждения с врачом можно вынести в начало: ${items.join("; ")}.`
-      : "По последним данным нет показателей вне обычного диапазона.",
-    "Ассистент не делает медицинских выводов. Его задача сейчас — собрать удобную сводку и вопросы к врачу."
+    `${greetingPrefix(data)}в кабинете сейчас ${(data.labs || []).length} лабораторных показателей и ${(data.labReports || []).length} исследований.`,
+    items.length ? `В первую очередь внимание привлекают: ${items.join("; ")}.` : "По последним данным показателей вне референса нет.",
+    "Можете выбрать конкретный показатель — я сверю его с вашей динамикой, возрастом/полом и подключенной доказательной базой."
   ].join("\n");
 }
 
@@ -313,10 +377,17 @@ async function guardAnswer(answer, payload, patientId) {
     return { answer, basis, safetyGuardApplied: false };
   }
 
+  let data = null;
+  try {
+    data = patientId ? await mockProvider.buildPatientSummaryContext(patientId) : null;
+  } catch (error) {
+    data = null;
+  }
+
   if (payload.context?.test_name) {
-    basis.validationStatus = "AI-интеграция, ответ ограничен safety guard и требует врачебной валидации";
+    basis.validationStatus = "Ответ модели был ограничен safety guard; возвращено справочное пояснение по подключенным данным";
     return {
-      answer: safeResultAnswer(payload.context),
+      answer: safeResultAnswer(payload.context, data),
       basis,
       safetyGuardApplied: true
     };
@@ -346,7 +417,7 @@ async function safeSummaryAnswer(payload, patientId) {
 }
 
 async function chat(payload = {}, patientId, config) {
-  const question = clampText(payload.message || "", 1200);
+  const question = clampText(payload.message || "", 1600);
   const minimalContext = await buildMinimalPatientContext(payload, patientId, config.maxPromptChars);
   const token = await getAccessToken(config);
   const json = await fetchJson(`${config.apiUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -363,8 +434,8 @@ async function chat(payload = {}, patientId, config) {
         { role: "user", content: ["Контекст Атласа здоровья:", minimalContext, "", "Вопрос пациента:", question].join("\n") }
       ],
       stream: false,
-      max_tokens: 700,
-      temperature: 0.2
+      max_tokens: 650,
+      temperature: 0.25
     })
   }, config);
 
