@@ -102,15 +102,7 @@ window.PatientStorage = (() => {
     }
   }
 
-  return {
-    setCurrentPatientId,
-    getCurrentPatientId,
-    patientStorageKey,
-    getPatientState,
-    setPatientState,
-    removePatientState,
-    clearPatientSessionState
-  };
+  return { setCurrentPatientId, getCurrentPatientId, patientStorageKey, getPatientState, setPatientState, removePatientState, clearPatientSessionState };
 })();
 
 window.HealthAPI = (() => {
@@ -131,11 +123,7 @@ window.HealthAPI = (() => {
     const { headers = {}, ...fetchOptions } = options;
     try {
       const requestHeaders = { "Content-Type": "application/json", ...headers };
-      const response = await fetch(`${API_BASE}${path}`, {
-        credentials: "include",
-        headers: requestHeaders,
-        ...fetchOptions
-      });
+      const response = await fetch(`${API_BASE}${path}`, { credentials: "include", headers: requestHeaders, ...fetchOptions });
       let body = null;
       if (response.status !== 204) {
         try { body = await response.json(); } catch (parseError) { body = null; }
@@ -158,38 +146,92 @@ window.HealthAPI = (() => {
 
   function apiMode() {
     if (mode === "unknown") return { mode: "ready", lastError, lastErrorCode, label: "Кабинет готов" };
+    return { mode: mode === "backend" ? "backend" : "unavailable", lastError, lastErrorCode, label: mode === "backend" ? "Данные обновлены" : "Кабинет временно недоступен" };
+  }
+
+  function post(path, payload) { return request(path, { method: "POST", body: JSON.stringify(payload || {}) }); }
+  function patch(path, payload) { return request(path, { method: "PATCH", body: JSON.stringify(payload || {}) }); }
+
+  function fromBase64Url(value) {
+    const base64 = String(value || "").replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(String(value || "").length / 4) * 4, "=");
+    const binary = atob(base64);
+    return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  }
+
+  function toBase64Url(value) {
+    if (!value) return null;
+    const bytes = value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value.buffer || value);
+    let binary = "";
+    bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function creationOptions(options) {
     return {
-      mode: mode === "backend" ? "backend" : "unavailable",
-      lastError,
-      lastErrorCode,
-      label: mode === "backend" ? "Данные обновлены" : "Кабинет временно недоступен"
+      ...options,
+      challenge: fromBase64Url(options.challenge),
+      user: { ...options.user, id: fromBase64Url(options.user.id) },
+      excludeCredentials: (options.excludeCredentials || []).map((item) => ({ ...item, id: fromBase64Url(item.id) }))
     };
   }
 
-  function post(path, payload) {
-    return request(path, { method: "POST", body: JSON.stringify(payload || {}) });
+  function authenticationOptions(options) {
+    return {
+      ...options,
+      challenge: fromBase64Url(options.challenge),
+      allowCredentials: (options.allowCredentials || []).map((item) => ({ ...item, id: fromBase64Url(item.id) }))
+    };
   }
 
-  function patch(path, payload) {
-    return request(path, { method: "PATCH", body: JSON.stringify(payload || {}) });
+  function serializeCredential(credential) {
+    const response = credential.response;
+    const result = {
+      id: credential.id,
+      rawId: toBase64Url(credential.rawId),
+      type: credential.type,
+      authenticatorAttachment: credential.authenticatorAttachment || null,
+      clientExtensionResults: credential.getClientExtensionResults ? credential.getClientExtensionResults() : {},
+      response: { clientDataJSON: toBase64Url(response.clientDataJSON) }
+    };
+    if (response.attestationObject) result.response.attestationObject = toBase64Url(response.attestationObject);
+    if (response.authenticatorData) result.response.authenticatorData = toBase64Url(response.authenticatorData);
+    if (response.signature) result.response.signature = toBase64Url(response.signature);
+    if (response.userHandle) result.response.userHandle = toBase64Url(response.userHandle);
+    if (typeof response.getTransports === "function") result.response.transports = response.getTransports();
+    return result;
   }
+
+  function passkeysSupported() {
+    return Boolean(window.PublicKeyCredential && navigator.credentials);
+  }
+
+  async function registerPasskey(label = "Face ID / отпечаток") {
+    if (!passkeysSupported()) throw Object.assign(new Error("passkey_unsupported"), { code: "passkey_unsupported" });
+    const setup = await post("/auth/passkey/registration/options", {});
+    const credential = await navigator.credentials.create({ publicKey: creationOptions(setup.options) });
+    if (!credential) throw Object.assign(new Error("passkey_cancelled"), { code: "passkey_cancelled" });
+    return post("/auth/passkey/registration/verify", { requestId: setup.requestId, response: serializeCredential(credential), label });
+  }
+
+  async function loginWithPasskey(loginValue) {
+    if (!passkeysSupported()) throw Object.assign(new Error("passkey_unsupported"), { code: "passkey_unsupported" });
+    const setup = await post("/auth/passkey/authentication/options", { login: loginValue });
+    const credential = await navigator.credentials.get({ publicKey: authenticationOptions(setup.options) });
+    if (!credential) throw Object.assign(new Error("passkey_cancelled"), { code: "passkey_cancelled" });
+    return post("/auth/passkey/authentication/verify", { requestId: setup.requestId, response: serializeCredential(credential) });
+  }
+
+  function listPasskeys() { return request("/auth/passkeys"); }
+  function deletePasskey(id) { return request(`/auth/passkeys/${encodeURIComponent(id)}`, { method: "DELETE" }); }
 
   function login(loginValue, password) { return post("/auth/login", { login: loginValue, password }); }
   function me() { return request("/auth/me"); }
   function logout() { return post("/auth/logout", {}); }
-  function changePassword(currentPassword, newPassword) {
-    return post("/auth/change-password", { currentPassword, newPassword });
-  }
-
+  function changePassword(currentPassword, newPassword) { return post("/auth/change-password", { currentPassword, newPassword }); }
   function adminListUsers() { return request("/admin/users"); }
   function adminCreateUser(payload) { return post("/admin/users", payload); }
-  function adminSetUserStatus(id, status) {
-    return patch(`/admin/users/${encodeURIComponent(id)}/status`, { status });
-  }
-  function adminResetPassword(id, temporaryPassword) {
-    return post(`/admin/users/${encodeURIComponent(id)}/reset-password`, { temporaryPassword });
-  }
-
+  function adminSetUserStatus(id, status) { return patch(`/admin/users/${encodeURIComponent(id)}/status`, { status }); }
+  function adminResetPassword(id, temporaryPassword) { return post(`/admin/users/${encodeURIComponent(id)}/reset-password`, { temporaryPassword }); }
   function getSummary() { return request("/summary"); }
   function getPatient() { return request("/patient"); }
   function updatePatient(payload) { return patch("/patient", payload); }
@@ -209,60 +251,22 @@ window.HealthAPI = (() => {
   function documentDownloadUrl(id) { return `${API_BASE}/documents/${encodeURIComponent(id)}/download`; }
   function labReportPdfDownloadUrl(id) { return `${API_BASE}/lab-reports/${encodeURIComponent(id)}/pdf`; }
   function integrationDownloadUrl(path) { return `${API_BASE}${path}`; }
-
   function importLabReport(payload) { return post("/integration/lab-report", payload); }
   function validateLabs(items) { return post("/labs/validate", items); }
   function importLabs(items) { return post("/labs/import", items); }
   function bookAppointment(payload) { return post("/appointments/book", payload); }
   function assistantChat(payload) { return post("/assistant/chat", payload); }
-
-  function reset() {
-    lastError = "Сброс локальных данных отключен: данные загружаются через backend API.";
-    return Promise.resolve({ ok: true });
-  }
+  function reset() { lastError = "Сброс локальных данных отключен: данные загружаются через backend API."; return Promise.resolve({ ok: true }); }
 
   return {
-    API_BASE,
-    apiMode,
-    login,
-    me,
-    logout,
-    changePassword,
-    adminListUsers,
-    adminCreateUser,
-    adminSetUserStatus,
-    adminResetPassword,
-    getSummary,
-    getPatient,
-    updatePatient,
-    getLabs,
-    getLabHistory,
-    getLabCatalog,
-    getLabReports,
-    getLabReport,
-    getLabTestHistory,
-    importLabReport,
-    getUnmappedLabMappings,
-    importLabs,
-    validateLabs,
-    getVisits,
-    bookAppointment,
-    getReports,
-    getDocuments,
-    documentDownloadUrl,
-    labReportPdfDownloadUrl,
-    getIntegrationStatus,
-    getAuditEvents,
-    integrationDownloadUrl,
-    getBookingData,
-    assistantChat,
-    summary: getSummary,
-    labs: getLabs,
-    labHistory: getLabHistory,
-    visits: getVisits,
-    reports: async () => ({ reports: await getReports(), docs: await getDocuments() }),
-    bookingData: getBookingData,
-    importLabObservations: importLabs,
-    reset
+    API_BASE, apiMode, login, me, logout, changePassword,
+    passkeysSupported, registerPasskey, loginWithPasskey, listPasskeys, deletePasskey,
+    adminListUsers, adminCreateUser, adminSetUserStatus, adminResetPassword,
+    getSummary, getPatient, updatePatient, getLabs, getLabHistory, getLabCatalog, getLabReports, getLabReport, getLabTestHistory,
+    importLabReport, getUnmappedLabMappings, importLabs, validateLabs, getVisits, bookAppointment, getReports, getDocuments,
+    documentDownloadUrl, labReportPdfDownloadUrl, getIntegrationStatus, getAuditEvents, integrationDownloadUrl, getBookingData, assistantChat,
+    summary: getSummary, labs: getLabs, labHistory: getLabHistory, visits: getVisits,
+    reports: async () => ({ reports: await getReports(), docs: await getDocuments() }), bookingData: getBookingData,
+    importLabObservations: importLabs, reset
   };
 })();
