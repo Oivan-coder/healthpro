@@ -7,10 +7,28 @@ function normalize(text) {
 function classify(message) {
   const text = normalize(message);
   if (!text) return "none";
-  if (/(сколько мне лет|какой у меня возраст|мой возраст|сколько мне сейчас)/i.test(text)) return "profile_age";
-  if (/(какой у меня пол|мой пол|я мужчина или женщина)/i.test(text)) return "profile_sex";
-  if (/(как меня зовут|мое имя|моё имя)/i.test(text)) return "profile_name";
-  if (/^(привет|здравствуй|здравствуйте|добрый день|доброе утро|добрый вечер|как дела|как ты|че как|что нового)$/i.test(text)) return "casual";
+
+  // Profile questions must always outrank any selected laboratory context.
+  if (
+    /(сколько\s+(?:мне|у меня)\s+(?:сейчас\s+)?лет)/i.test(text) ||
+    /(?:а\s+)?лет\s+мне\s+сколько/i.test(text) ||
+    /мне\s+сколько\s+лет/i.test(text) ||
+    /(?:какой|сколько).*возраст|возраст.*(?:какой|сколько)|мой\s+возраст/i.test(text)
+  ) return "profile_age";
+
+  if (
+    /какой\s+у\s+меня\s+пол|мой\s+пол|пол\s+у\s+меня|я\s+мужчина\s+или\s+женщина/i.test(text)
+  ) return "profile_sex";
+
+  if (
+    /как\s+меня\s+зовут|мое\s+имя|моё\s+имя|как\s+зовут\s+меня/i.test(text)
+  ) return "profile_name";
+
+  // Keep short conversational phrases conversational, including common typos.
+  if (
+    /^(привет|здравствуй|здравствуйте|добрый день|доброе утро|добрый вечер|как дела|как ты|че как|чё как|че ка|чё ка|что нового)[?!.\s]*$/i.test(text)
+  ) return "casual";
+
   if (/(поговорим|поговорить|о чем[- ]?то другом|другая тема|сменим тему|что расскажешь)/i.test(text)) return "casual";
   if (/\bоак\b|общ(ий|его).*анализ.*кров|клиническ.*анализ.*кров|коагулограмм|гемостаз|липидограмм|щитовид/i.test(text)) return "study";
   return "none";
