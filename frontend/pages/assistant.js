@@ -144,9 +144,6 @@ function assistantContextFromLab(lab) {
     unit: lab.unit,
     flag: lab.flag,
     report_date: lab.latestDate,
-    reference_low: lab.referenceLow ?? lab.reference_low ?? lab.refLow ?? lab.ref_low ?? null,
-    reference_high: lab.referenceHigh ?? lab.reference_high ?? lab.refHigh ?? lab.ref_high ?? null,
-    reference: lab.reference || lab.referenceText || lab.reference_text || null,
     history: Array.isArray(lab.history)
       ? lab.history.map(row => ({
         date: row.date,
@@ -488,6 +485,10 @@ window.Pages.assistant = async function renderAssistant() {
     try {
       const response = await HealthAPI.assistantChat({ message: question, mode: requestMode, context: AssistantState.context });
       AssistantState.pending = false;
+      if (response.resolvedContext?.test_name) {
+        AssistantState.context = response.resolvedContext;
+        AssistantState.mode = "result_explanation";
+      }
       AssistantState.messages.push({
         role: "assistant",
         text: response.answer,
@@ -606,13 +607,13 @@ window.Pages.assistant = async function renderAssistant() {
   document.querySelectorAll("[data-assistant-question]").forEach(btn => {
     btn.onclick = () => {
       const question = btn.dataset.assistantQuestion || "";
-      AssistantState.mode = btn.dataset.assistantPromptMode || AssistantState.mode;
-      assistantInput.value = question;
+      const promptMode = btn.dataset.assistantPromptMode || AssistantState.mode;
+      AssistantState.mode = promptMode;
       AssistantState.draft = question;
-      syncDraftState();
+      assistantInput.value = question;
       assistantInput.focus();
       assistantInput.setSelectionRange(question.length, question.length);
-      document.getElementById("assistantForm")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      syncDraftState();
     };
   });
 
