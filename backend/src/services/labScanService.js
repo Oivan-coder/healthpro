@@ -186,7 +186,14 @@ async function analyze(user, file = {}) {
   if (!patient) throw httpError("patient_not_available", 404);
 
   const fileId = await giga.uploadFile(file.buffer, file.fileName, mimeType, config.gigachat);
-  const extracted = await giga.extractLabReport(fileId, config.gigachat);
+  let extracted;
+  try {
+    extracted = await giga.extractLabReport(fileId, config.gigachat);
+  } finally {
+    giga.deleteFile(fileId, config.gigachat).catch((error) => {
+      console.warn("GigaChat scan file cleanup failed", { message: error?.message || "unknown_error" });
+    });
+  }
   const tests = Array.isArray(extracted.tests) ? extracted.tests.slice(0, 100) : [];
   if (!tests.length) throw httpError("scan_no_results", 422);
   const dictionaryRows = await repository.listDictionaryRows();

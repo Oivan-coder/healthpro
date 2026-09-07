@@ -174,6 +174,7 @@ async function extractLabReport(fileId, config) {
     temperature: 0,
     max_tokens: 2600,
     response_format: SCAN_SCHEMA,
+    function_call: "auto",
     messages: [
       { role: "system", content: system },
       { role: "user", content: "Распознай приложенный лабораторный бланк и извлеки результаты.", attachments: [fileId] }
@@ -188,6 +189,7 @@ async function extractLabReport(fileId, config) {
     stream: false,
     temperature: 0,
     max_tokens: 2600,
+    function_call: "auto",
     messages: [
       { role: "system", content: system },
       { role: "user", content: "Верни строго один валидный JSON-объект без markdown.", attachments: [fileId] }
@@ -198,4 +200,14 @@ async function extractLabReport(fileId, config) {
   return parsed;
 }
 
-module.exports = { uploadFile, extractLabReport, parseObject };
+async function deleteFile(fileId, config) {
+  if (!fileId) return;
+  const token = await accessToken(config);
+  await request(`${config.apiUrl.replace(/\/$/, "")}/files/${encodeURIComponent(fileId)}/delete`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    body: Buffer.alloc(0)
+  }, config);
+}
+
+module.exports = { uploadFile, extractLabReport, deleteFile, parseObject };
