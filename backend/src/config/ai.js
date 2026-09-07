@@ -44,6 +44,7 @@ function gigachatCaCert() {
 }
 
 function getAiConfig() {
+  const isProduction = String(process.env.NODE_ENV || "").toLowerCase() === "production";
   return {
     enabled: bool(process.env.AI_ENABLED, false),
     provider: String(process.env.AI_PROVIDER || "mock").toLowerCase(),
@@ -53,10 +54,9 @@ function getAiConfig() {
       apiUrl: process.env.GIGACHAT_API_URL || "https://api.giga.chat/v1",
       scope: process.env.GIGACHAT_SCOPE || "GIGACHAT_API_PERS",
       model: process.env.GIGACHAT_MODEL || "GigaChat-2",
-      scanModel: process.env.GIGACHAT_SCAN_MODEL || "GigaChat-2-Pro",
       timeoutMs: Number(process.env.GIGACHAT_TIMEOUT_MS || 12000),
       maxPromptChars: Number(process.env.GIGACHAT_MAX_PROMPT_CHARS || 6000),
-      rejectUnauthorized: bool(process.env.GIGACHAT_REJECT_UNAUTHORIZED, true),
+      rejectUnauthorized: isProduction ? true : bool(process.env.GIGACHAT_REJECT_UNAUTHORIZED, true),
       caCert: gigachatCaCert()
     }
   };
