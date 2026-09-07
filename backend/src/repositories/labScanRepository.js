@@ -44,7 +44,8 @@ async function searchDictionaryRows(query, limit = 30) {
   const text = String(query || "").trim();
   if (!text) return [];
   const pool = await getPool();
-  const like = `%${text.replace(/[%_]/g, "\\$&")}%`;
+  const like = `%${text}%`;
+  const prefix = `${text}%`;
   const [rows] = await pool.query(`
     SELECT
       t.id AS test_id, t.code, t.source_test_code, t.name, t.display_name,
@@ -56,21 +57,21 @@ async function searchDictionaryRows(query, limit = 30) {
     JOIN lab_services s ON s.id = st.service_id
     WHERE t.active = 1 AND s.active = 1
       AND (
-        t.name LIKE ? ESCAPE '\\'
-        OR t.display_name LIKE ? ESCAPE '\\'
-        OR t.code LIKE ? ESCAPE '\\'
-        OR t.source_test_code LIKE ? ESCAPE '\\'
+        LOWER(COALESCE(t.name, '')) LIKE LOWER(?)
+        OR LOWER(COALESCE(t.display_name, '')) LIKE LOWER(?)
+        OR LOWER(COALESCE(t.code, '')) LIKE LOWER(?)
+        OR LOWER(COALESCE(t.source_test_code, '')) LIKE LOWER(?)
       )
     ORDER BY
       CASE
-        WHEN t.code = ? OR t.source_test_code = ? THEN 0
-        WHEN t.name = ? OR t.display_name = ? THEN 1
-        WHEN t.name LIKE ? OR t.display_name LIKE ? THEN 2
+        WHEN LOWER(COALESCE(t.code, '')) = LOWER(?) OR LOWER(COALESCE(t.source_test_code, '')) = LOWER(?) THEN 0
+        WHEN LOWER(COALESCE(t.name, '')) = LOWER(?) OR LOWER(COALESCE(t.display_name, '')) = LOWER(?) THEN 1
+        WHEN LOWER(COALESCE(t.name, '')) LIKE LOWER(?) OR LOWER(COALESCE(t.display_name, '')) LIKE LOWER(?) THEN 2
         ELSE 3
       END,
       COALESCE(t.display_name, t.name), st.sort_order, s.name
     LIMIT ?
-  `, [like, like, like, like, text, text, text, text, `${text}%`, `${text}%`, Math.max(1, Math.min(Number(limit) || 30, 50))]);
+  `, [like, like, like, like, text, text, text, text, prefix, prefix, Math.max(1, Math.min(Number(limit) || 30, 50))]);
   return rows.map(mapDictionaryRow);
 }
 
@@ -84,6 +85,19 @@ function parseValue(raw) {
   const normalized = valueRaw.replace(",", ".");
   if (/^-?\d+(?:\.\d+)?$/.test(normalized)) return { valueRaw, valueNum: Number(normalized), valueText: null };
   return { valueRaw, valueNum: null, valueText: valueRaw };
+}
+
+function normalizeUnit(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[×х]/g, "x")
+    .replace(/[–—−]/g, "-")
+    .replace(/\s+/g, "")
+    .replace(/сек\.?/g, "с")
+    .replace(/seconds?/g, "s")
+    .replace(/10\^/g, "10")
+    .trim();
 }
 
 async function saveConfirmed(user, reportDate, rows, meta = {}) {
@@ -146,6 +160,22 @@ async function saveConfirmed(user, reportDate, rows, meta = {}) {
         const error = new Error("test_not_in_service");
         error.statusCode = 400;
         throw error;
+      }
+
+      for (const item of items) {
+        const test = tests.get(String(item.testId));
+        const sourceUnit = normalizeUnit(item.extractedUnit);
+        const atlasUnit = normalizeUnit(test?.preferred_unit || test?.unit || "");
+        if (sourceUnit && atlasUnit && sourceUnit !== atlasUnit) {
+          const error = new Error("scan_unit_mismatch");
+          error.statusCode = 409;
+          error.details = {
+            extractedName: String(item.extractedName || ""),
+            sourceUnit: String(item.extractedUnit || ""),
+            atlasUnit: String(test?.preferred_unit || test?.unit || "")
+          };
+          throw error;
+        }
       }
 
       const reportId = `scan_${crypto.randomUUID()}`;
@@ -217,4 +247,4 @@ async function saveConfirmed(user, reportDate, rows, meta = {}) {
   }
 }
 
-module.exports = { getPatient, listDictionaryRows, searchDictionaryRows, saveConfirmed };
+module.exports = { getPatient, listDictionaryRows, searchDictionaryRows, saveConfirmed, normalizeUnit };
