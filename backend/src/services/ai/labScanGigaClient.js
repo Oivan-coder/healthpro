@@ -159,6 +159,7 @@ async function chatCompletion(payload, config, allowFormatFallback = true) {
 }
 
 async function extractLabReport(fileId, config) {
+  const model = config.scanModel || "GigaChat-2-Pro";
   const system = [
     "Ты извлекаешь данные из лабораторного бланка пациента.",
     "Ничего не интерпретируй, не ставь диагноз и не исправляй значения.",
@@ -169,7 +170,7 @@ async function extractLabReport(fileId, config) {
     'Ответ — JSON вида {"report_date":"","laboratory":"","report_name":"","tests":[{"name":"","code":"","value":"","unit":"","reference":""}]}.'
   ].join("\n");
   const payload = {
-    model: config.model,
+    model,
     stream: false,
     temperature: 0,
     max_tokens: 2600,
@@ -185,7 +186,7 @@ async function extractLabReport(fileId, config) {
   if (parsed && Array.isArray(parsed.tests)) return parsed;
 
   content = await chatCompletion({
-    model: config.model,
+    model,
     stream: false,
     temperature: 0,
     max_tokens: 2600,
