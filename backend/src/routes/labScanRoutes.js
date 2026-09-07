@@ -9,6 +9,7 @@ const rawScan = typeof express.raw === "function"
   : (req, res, next) => next();
 
 router.post("/lab-scan/analyze", requirePatient, rawScan, controller.analyze);
+router.get("/lab-scan/search", requirePatient, controller.search);
 router.post("/lab-scan/confirm", requirePatient, controller.confirm);
 
 module.exports = router;

@@ -41,6 +41,14 @@ function dice(a, b) {
   return (2 * intersection) / (left.size + right.size);
 }
 
+function exactIdentityMatch(extracted, candidate) {
+  const name = normalize(extracted.name);
+  const code = normalize(extracted.code);
+  const names = [candidate.name, candidate.rawName].map(normalize).filter(Boolean);
+  const codes = [candidate.code, candidate.sourceTestCode].map(normalize).filter(Boolean);
+  return Boolean((name && (names.includes(name) || codes.includes(name))) || (code && codes.includes(code)));
+}
+
 function scoreExtracted(extracted, candidate) {
   const name = normalize(extracted.name);
   const code = normalize(extracted.code);
@@ -105,7 +113,7 @@ function mapRows(extractedTests, dictionaryRows) {
   const dictionary = collapseDictionary(dictionaryRows);
   const ranked = extractedTests.map((extracted) => {
     const rank = dictionary
-      .map((candidate) => ({ candidate, score: scoreExtracted(extracted, candidate) }))
+      .map((candidate) => ({ candidate, score: scoreExtracted(extracted, candidate), exact: exactIdentityMatch(extracted, candidate) }))
       .filter((item) => item.score >= 28)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5);
@@ -116,7 +124,10 @@ function mapRows(extractedTests, dictionaryRows) {
   return ranked.map(({ extracted, rank }, index) => {
     const top = rank[0];
     const second = rank[1];
-    const confident = Boolean(top && top.score >= 68 && (!second || top.score - second.score >= 8));
+    const confident = Boolean(top && (
+      top.exact
+      || (top.score >= 96 && (!second || top.score - second.score >= 14))
+    ));
     const choices = [];
     rank.slice(0, 4).forEach(({ candidate, score }) => {
       serviceChoices(candidate, support).slice(0, 3).forEach((service) => {
@@ -216,6 +227,23 @@ async function analyze(user, file = {}) {
   };
 }
 
+async function searchDictionary(user, query) {
+  if (!user?.patientId || !["user", "tester"].includes(user.role)) throw httpError("patient_context_required", 403);
+  const q = clean(query);
+  if (!q) return { results: [] };
+  const rows = await repository.searchDictionaryRows(q, 40);
+  return {
+    results: rows.map((row) => ({
+      testId: row.testId,
+      serviceId: row.serviceId,
+      code: row.code,
+      name: row.name,
+      unit: row.unit,
+      serviceName: row.serviceName
+    }))
+  };
+}
+
 async function confirm(user, payload = {}) {
   if (!user?.patientId || !["user", "tester"].includes(user.role)) throw httpError("patient_context_required", 403);
   const reportDate = normalizeDate(payload.reportDate);
@@ -240,4 +268,4 @@ async function confirm(user, payload = {}) {
   });
 }
 
-module.exports = { analyze, confirm, mapRows, scoreExtracted, MAX_FILE_BYTES };
+module.exports = { analyze, searchDictionary, confirm, mapRows, scoreExtracted, exactIdentityMatch, MAX_FILE_BYTES };

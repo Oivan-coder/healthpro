@@ -24,6 +24,14 @@ async function analyze(req, res, next) {
   }
 }
 
+async function search(req, res, next) {
+  try {
+    res.json(await service.searchDictionary(req.auth.user, req.query.q));
+  } catch (error) {
+    next(error);
+  }
+}
+
 async function confirm(req, res, next) {
   try {
     const reports = await service.confirm(req.auth.user, req.body || {});
@@ -45,4 +53,4 @@ async function confirm(req, res, next) {
   }
 }
 
-module.exports = { analyze, confirm };
+module.exports = { analyze, search, confirm };

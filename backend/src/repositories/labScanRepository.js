@@ -1,6 +1,21 @@
 const crypto = require("crypto");
 const { getPool } = require("../db/mysql");
 
+function mapDictionaryRow(row) {
+  return {
+    testId: String(row.test_id),
+    code: row.code || "",
+    sourceTestCode: row.source_test_code || "",
+    name: row.display_name || row.name || "",
+    rawName: row.name || "",
+    unit: row.unit || "",
+    serviceId: String(row.service_id),
+    serviceCode: row.service_code || "",
+    serviceName: row.service_name || "",
+    sortOrder: Number(row.sort_order || 0)
+  };
+}
+
 async function getPatient(patientId) {
   const pool = await getPool();
   const [rows] = await pool.query("SELECT id, name, birth_date, age, sex FROM patients WHERE id = ? LIMIT 1", [patientId]);
@@ -22,18 +37,41 @@ async function listDictionaryRows() {
     WHERE t.active = 1 AND s.active = 1
     ORDER BY t.id, st.sort_order, s.name
   `);
-  return rows.map((row) => ({
-    testId: String(row.test_id),
-    code: row.code || "",
-    sourceTestCode: row.source_test_code || "",
-    name: row.display_name || row.name || "",
-    rawName: row.name || "",
-    unit: row.unit || "",
-    serviceId: String(row.service_id),
-    serviceCode: row.service_code || "",
-    serviceName: row.service_name || "",
-    sortOrder: Number(row.sort_order || 0)
-  }));
+  return rows.map(mapDictionaryRow);
+}
+
+async function searchDictionaryRows(query, limit = 30) {
+  const text = String(query || "").trim();
+  if (!text) return [];
+  const pool = await getPool();
+  const like = `%${text.replace(/[%_]/g, "\\$&")}%`;
+  const [rows] = await pool.query(`
+    SELECT
+      t.id AS test_id, t.code, t.source_test_code, t.name, t.display_name,
+      COALESCE(t.preferred_unit, t.unit, '') AS unit,
+      s.id AS service_id, s.code AS service_code, s.name AS service_name,
+      st.sort_order
+    FROM lab_tests t
+    JOIN lab_service_tests st ON st.test_id = t.id
+    JOIN lab_services s ON s.id = st.service_id
+    WHERE t.active = 1 AND s.active = 1
+      AND (
+        t.name LIKE ? ESCAPE '\\'
+        OR t.display_name LIKE ? ESCAPE '\\'
+        OR t.code LIKE ? ESCAPE '\\'
+        OR t.source_test_code LIKE ? ESCAPE '\\'
+      )
+    ORDER BY
+      CASE
+        WHEN t.code = ? OR t.source_test_code = ? THEN 0
+        WHEN t.name = ? OR t.display_name = ? THEN 1
+        WHEN t.name LIKE ? OR t.display_name LIKE ? THEN 2
+        ELSE 3
+      END,
+      COALESCE(t.display_name, t.name), st.sort_order, s.name
+    LIMIT ?
+  `, [like, like, like, like, text, text, text, text, `${text}%`, `${text}%`, Math.max(1, Math.min(Number(limit) || 30, 50))]);
+  return rows.map(mapDictionaryRow);
 }
 
 function parseValue(raw) {
@@ -179,4 +217,4 @@ async function saveConfirmed(user, reportDate, rows, meta = {}) {
   }
 }
 
-module.exports = { getPatient, listDictionaryRows, saveConfirmed };
+module.exports = { getPatient, listDictionaryRows, searchDictionaryRows, saveConfirmed };
