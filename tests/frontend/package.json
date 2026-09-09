@@ -1,0 +1,14 @@
+{
+  "name": "healthpro-frontend-checks",
+  "private": true,
+  "scripts": {
+    "test": "node smoke.cjs && node responsive.cjs && node pages.cjs && node tester-profile.cjs && node assistant-dialogue.cjs"
+  },
+  "devDependencies": {
+    "jsdom": "30.0.1",
+    "postcss": "8.5.28"
+  },
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  }
+}

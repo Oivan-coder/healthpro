@@ -14,9 +14,16 @@ async function getCatalog() {
 }
 
 function statusFor(meta, value) {
-  if (value > meta.high) return "high";
-  if (value < meta.low) return "low";
-  return "normal";
+  if (typeof value !== "number" || !Number.isFinite(value)) return "info";
+  if (meta.high != null && value > meta.high) return "high";
+  if (meta.low != null && value < meta.low) return "low";
+  return meta.low != null || meta.high != null ? "normal" : "info";
+}
+
+function observationValue(value) {
+  if (value == null || String(value).trim() === "") return value;
+  const numeric = Number(String(value).replace(",", "."));
+  return Number.isFinite(numeric) ? numeric : value;
 }
 
 function buildInterpretation(meta, value, flag) {
@@ -26,7 +33,8 @@ function buildInterpretation(meta, value, flag) {
   if (flag === "high") {
     return `${meta.name}: значение выше референсного интервала. Это не диагноз; результат требует врачебной интерпретации с учетом подготовки, лекарств и сопутствующих факторов.`;
   }
-  return `${meta.name}: значение ниже референсного интервала. Рекомендуется обсудить результат с врачом и при необходимости повторить исследование.`;
+  if (flag === "low") return `${meta.name}: значение ниже референсного интервала. Рекомендуется обсудить результат с врачом и при необходимости повторить исследование.`;
+  return `${meta.name}: числовая оценка по референсу недоступна.`;
 }
 
 async function getLabs(patientId) {
@@ -53,7 +61,7 @@ async function getLabs(patientId) {
     .map(([code, history]) => {
       const meta = byCode[code];
       const sorted = history
-        .map((item) => ({ ...item, value: Number(item.value) }))
+        .map((item) => ({ ...item, value: observationValue(item.value) }))
         .sort((a, b) => parseRuDate(a.date) - parseRuDate(b.date));
       const latest = sorted[sorted.length - 1];
       const flag = statusFor(meta, latest.value);
@@ -63,6 +71,7 @@ async function getLabs(patientId) {
         latestDate: latest.date,
         flag,
         history: sorted.map((item) => ({
+          ...item,
           date: item.date,
           value: item.value,
           flag: statusFor(meta, item.value)
@@ -97,7 +106,7 @@ async function getHistory(patientId) {
     .filter((obs) => byCode[obs.code])
     .map((obs) => {
       const meta = byCode[obs.code];
-      const value = Number(obs.value);
+      const value = observationValue(obs.value);
       return { ...obs, ...meta, value, flag: statusFor(meta, value) };
     })
     .sort((a, b) => parseRuDate(b.date) - parseRuDate(a.date));
@@ -195,9 +204,10 @@ async function getTestHistory(testCode, patientId) {
   if (!history.length) return null;
   const meta = history[history.length - 1];
   const enriched = history.map((item) => ({
+    ...item,
     date: item.date,
-    value: Number(item.value),
-    flag: statusFor(item, Number(item.value))
+    value: observationValue(item.value),
+    flag: statusFor(item, observationValue(item.value))
   }));
   const latest = enriched[enriched.length - 1];
   return {

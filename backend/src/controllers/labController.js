@@ -1,11 +1,22 @@
 const labService = require("../services/labService");
+const labReferenceService = require("../services/labReferenceService");
 const auditService = require("../services/auditService");
+const demoPatients = require("../data/demoPatients");
 const { getDemoPatientId, storagePatientId } = require("../utils/demoPatientContext");
 const fs = require("fs");
 const path = require("path");
 
+function shouldEnrichDictionaryReferences(patientContextId) {
+  return !demoPatients.isSyntheticPatient(patientContextId);
+}
+
 async function getLabs(req, res, next) {
-  try { res.json(await labService.getLabs(getDemoPatientId(req))); } catch (error) { next(error); }
+  try {
+    const patientContextId = getDemoPatientId(req);
+    const data = await labService.getLabs(patientContextId);
+    if (!shouldEnrichDictionaryReferences(patientContextId)) return res.json(data);
+    res.json(await labReferenceService.enrichLabs(data, storagePatientId(patientContextId)));
+  } catch (error) { next(error); }
 }
 
 async function getCatalog(req, res, next) {
@@ -13,7 +24,12 @@ async function getCatalog(req, res, next) {
 }
 
 async function getHistory(req, res, next) {
-  try { res.json(await labService.getHistory(getDemoPatientId(req))); } catch (error) { next(error); }
+  try {
+    const patientContextId = getDemoPatientId(req);
+    const history = await labService.getHistory(patientContextId);
+    if (!shouldEnrichDictionaryReferences(patientContextId)) return res.json(history);
+    res.json(await labReferenceService.enrichHistory(history, storagePatientId(patientContextId)));
+  } catch (error) { next(error); }
 }
 
 async function importLabs(req, res, next) {
@@ -33,14 +49,27 @@ async function validateLabs(req, res, next) {
 }
 
 async function getLabReports(req, res, next) {
-  try { res.json(await labService.getLabReports(getDemoPatientId(req))); } catch (error) { next(error); }
+  try {
+    const patientContextId = getDemoPatientId(req);
+    const reports = await labService.getLabReports(patientContextId);
+    if (!shouldEnrichDictionaryReferences(patientContextId)) return res.json(reports);
+    const storageId = storagePatientId(patientContextId);
+    const enriched = await labReferenceService.enrichReportSummaries(
+      reports,
+      storageId,
+      (id) => labService.getLabReportById(id, patientContextId)
+    );
+    res.json(enriched);
+  } catch (error) { next(error); }
 }
 
 async function getLabReportById(req, res, next) {
   try {
-    const report = await labService.getLabReportById(req.params.id, getDemoPatientId(req));
+    const patientContextId = getDemoPatientId(req);
+    const report = await labService.getLabReportById(req.params.id, patientContextId);
     if (!report) return res.status(404).json({ error: "lab_report_not_found" });
-    res.json(report);
+    if (!shouldEnrichDictionaryReferences(patientContextId)) return res.json(report);
+    res.json(await labReferenceService.enrichReport(report, storagePatientId(patientContextId)));
   } catch (error) { next(error); }
 }
 
@@ -122,9 +151,11 @@ async function downloadLabReportPdf(req, res, next) {
 
 async function getTestHistory(req, res, next) {
   try {
-    const history = await labService.getTestHistory(req.params.testCode, getDemoPatientId(req));
+    const patientContextId = getDemoPatientId(req);
+    const history = await labService.getTestHistory(req.params.testCode, patientContextId);
     if (!history) return res.status(404).json({ error: "lab_test_history_not_found" });
-    res.json(history);
+    if (!shouldEnrichDictionaryReferences(patientContextId)) return res.json(history);
+    res.json(await labReferenceService.enrichTestHistory(history, storagePatientId(patientContextId)));
   } catch (error) { next(error); }
 }
 

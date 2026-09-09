@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const { dbConfig } = require("./env");
+const { runMigrations } = require("./migrations");
 
 async function main() {
   const config = dbConfig();
@@ -25,9 +26,11 @@ async function main() {
   const schema = fs.readFileSync(path.join(__dirname, "schema.mysql.sql"), "utf8");
   await connection.query(schema);
   await ensureContextColumns(connection, config.database);
+  const applied = await runMigrations(connection);
   await connection.end();
 
   console.log(`MySQL schema initialized: ${config.database}`);
+  if (applied.length) console.log(`Migrations applied: ${applied.join(", ")}`);
 }
 
 async function ensureContextColumns(connection, database) {

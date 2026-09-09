@@ -1,11 +1,17 @@
 const express = require("../utils/expressAdapter");
+const authRoutes = require("./authRoutes");
+const adminUserRoutes = require("./adminUserRoutes");
+const manualLabRoutes = require("./manualLabRoutes");
+const labScanRoutes = require("./labScanRoutes");
 const patientRoutes = require("./patientRoutes");
+const patientHistoryRoutes = require("./patientHistoryRoutes");
 const labRoutes = require("./labRoutes");
 const appointmentRoutes = require("./appointmentRoutes");
 const reportRoutes = require("./reportRoutes");
 const integrationRoutes = require("./integrationRoutes");
 const assistantRoutes = require("./assistantRoutes");
 const auditRoutes = require("./auditRoutes");
+const { requireAuth, requirePasswordReady } = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -18,7 +24,14 @@ router.get("/health", (req, res) => {
   });
 });
 
+router.use(authRoutes);
+router.use(requireAuth);
+router.use(requirePasswordReady);
+router.use(adminUserRoutes);
+router.use(manualLabRoutes);
+router.use(labScanRoutes);
 router.use(patientRoutes);
+router.use(patientHistoryRoutes);
 router.use(labRoutes);
 router.use(appointmentRoutes);
 router.use(reportRoutes);

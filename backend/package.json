@@ -5,7 +5,9 @@
   "main": "src/server.js",
   "scripts": {
     "db:init": "node src/db/init.js",
+    "db:migrate": "node src/db/migrate.js",
     "db:seed": "node src/db/seed.js",
+    "db:seed:users": "node src/db/seedDemoUsers.js",
     "dictionary:inspect": "node src/import/dictionaryImport.js inspect",
     "dictionary:import": "node src/import/dictionaryImport.js import",
     "dev": "node --watch src/server.js",
